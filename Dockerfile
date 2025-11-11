@@ -1,0 +1,27 @@
+# ---- build ----
+FROM golang:alpine AS builder
+RUN apk add --no-cache git
+WORKDIR /src
+
+ARG USQUE_REPO="https://github.com/Diniboy1123/usque.git"
+ARG USQUE_REF="main"   # 由 CI 传入：上游最新 tag（或指定 ref）
+
+# 直接 clone 指定 ref（tag/分支/提交都可），保留浅克隆
+RUN git clone --depth=1 --branch "${USQUE_REF}" "${USQUE_REPO}" . \
+ || (echo "指定的 USQUE_REF=${USQUE_REF} 不是分支/轻量 tag，尝试完整拉取后 checkout" && \
+     git clone "${USQUE_REPO}" . && \
+     git fetch --tags --force && \
+     git checkout "${USQUE_REF}")
+
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/usque .
+
+# ---- runtime ----
+FROM alpine 
+WORKDIR /app
+
+COPY --from=builder /out/usque /bin/usque
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+VOLUME ["/app"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
