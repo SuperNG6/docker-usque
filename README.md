@@ -37,6 +37,7 @@ services:
     restart: unless-stopped
     environment:
       - USQUE_MODE=socks           # 运行模式：socks / http-proxy / nativetun / portfw / enroll / register
+      - USQUE_MTU=1200
       - USQUE_CONFIG=/app/config.json
       - USQUE_BIND=0.0.0.0
       - USQUE_PORT=1080
@@ -58,6 +59,7 @@ services:
     restart: unless-stopped
     environment:
       - USQUE_MODE=http-proxy
+      - USQUE_MTU=1200
       - USQUE_CONFIG=/app/config.json
       - USQUE_BIND=0.0.0.0
       - USQUE_PORT=8000
@@ -205,6 +207,7 @@ docker compose up -d usque-socks usque-http
 | `USQUE_PORT`        | 代理端口（socks 默认 1080，http-proxy 默认 8000）                                       | 视模式而定              |
 | `USQUE_USER`        | 代理用户名（仅支持一个 user:pass）                                                       | 空                  |
 | `USQUE_PASS`        | 代理密码                                                                         | 空                  |
+| `USQUE_MTU`        | MTU值，默认1280,bt下载推荐1200                                                                         | 空                  |
 | `USQUE_DNS`         | 代理使用的 DNS，**空格分隔多个**（仅 `socks/http-proxy/portfw` 有效，例如 `1.1.1.1 1.0.0.1`）    | 空                  |
 
 ---

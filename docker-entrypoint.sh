@@ -4,6 +4,7 @@ set -e
 # ===================== 基本设置 =====================
 : "${USQUE_CONFIG:=/app/config.json}"   # 配置文件路径
 : "${USQUE_MODE:=socks}"                # 默认子命令：socks | http-proxy | nativetun | portfw | enroll | register
+# USQUE_MTU: 可选，MASQUE MTU（如 1200），仅在 socks/http-proxy/nativetun/portfw 下生效
 mkdir -p "$(dirname "$USQUE_CONFIG")"
 
 log() { echo "[entrypoint] $*"; }
@@ -74,10 +75,11 @@ if [ -z "${USQUE_SNI:-}" ] && [ -r "$USQUE_CONFIG" ]; then
 fi
 
 # ===================== 按模式补参数 =====================
-# 仅对会建立隧道的模式添加 SNI，避免 register/enroll 报 unknown flag
+# 仅对会建立隧道的模式添加 SNI/MTU，避免 register/enroll 报 unknown flag
 case "$cmd" in
   socks|http-proxy|nativetun|portfw)
     [ -n "${USQUE_SNI:-}" ] && set -- -s "$USQUE_SNI" "$@"
+    [ -n "${USQUE_MTU:-}" ] && set -- -m "$USQUE_MTU" "$@"
     ;;
 esac
 
