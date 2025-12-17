@@ -13,7 +13,7 @@ RUN git clone --depth=1 --branch "${USQUE_REF}" "${USQUE_REPO}" . \
      git fetch --tags --force && \
      git checkout "${USQUE_REF}")
 
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/usque .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -gcflags="all=-l=4" -o /out/usque .
 
 # ---- runtime ----
 FROM alpine 
