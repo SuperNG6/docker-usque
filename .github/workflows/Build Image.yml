@@ -7,6 +7,8 @@ on:
         description: '可选：指定构建的上游 tag/分支/提交（留空则自动取上游最新 tag）'
         required: false
         default: ''
+  schedule:
+    - cron: '0 4 * * *'   # 每天 04:00 UTC 自动检查上游最新 tag
 
 env:
   DOCKER_IMAGE: superng6/usque
@@ -25,9 +27,11 @@ jobs:
     steps:
       - name: 获取上游版本
         id: set-version
+        env:
+          INPUT_REF: ${{ github.event.inputs.ref }}
         run: |
-          if [ -n "${{ github.event.inputs.ref }}" ]; then
-            VERSION="${{ github.event.inputs.ref }}"
+          if [ -n "$INPUT_REF" ]; then
+            VERSION="$INPUT_REF"
           else
             VERSION=$(git ls-remote --tags --refs "${{ env.UPSTREAM_REPO }}" \
               | awk -F/ '{print $3}' \
