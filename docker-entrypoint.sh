@@ -75,11 +75,13 @@ if [ -z "${USQUE_SNI:-}" ] && [ -r "$USQUE_CONFIG" ]; then
 fi
 
 # ===================== 按模式补参数 =====================
-# 仅对会建立隧道的模式添加 SNI/MTU，避免 register/enroll 报 unknown flag
+# 仅对会建立隧道的模式添加 SNI/MTU/HTTP2/INSECURE，避免 register/enroll 报 unknown flag
 case "$cmd" in
   socks|http-proxy|nativetun|portfw)
-    [ -n "${USQUE_SNI:-}" ] && set -- -s "$USQUE_SNI" "$@"
-    [ -n "${USQUE_MTU:-}" ] && set -- -m "$USQUE_MTU" "$@"
+    [ -n "${USQUE_SNI:-}" ]               && set -- -s "$USQUE_SNI" "$@"
+    [ -n "${USQUE_MTU:-}" ]               && set -- -m "$USQUE_MTU" "$@"
+    [ "${USQUE_HTTP2:-false}" = "true" ]  && set -- --http2 "$@"
+    [ "${USQUE_INSECURE:-false}" = "true" ] && set -- --insecure "$@"
     ;;
 esac
 

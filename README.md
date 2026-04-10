@@ -207,8 +207,33 @@ docker compose up -d usque-socks usque-http
 | `USQUE_PORT`        | 代理端口（socks 默认 1080，http-proxy 默认 8000）                                       | 视模式而定              |
 | `USQUE_USER`        | 代理用户名（仅支持一个 user:pass）                                                       | 空                  |
 | `USQUE_PASS`        | 代理密码                                                                         | 空                  |
-| `USQUE_MTU`        | MTU值，默认1280,bt下载推荐1200                                                                         | 空                  |
+| `USQUE_MTU`         | MTU值，默认1280，bt下载推荐1200                                                                        | 空                  |
+| `USQUE_HTTP2`       | 设为 `true` 时通过 TCP/HTTP2 连接（默认 QUIC/HTTP3），适合 QUIC 被屏蔽的网络环境                    | `false`            |
+| `USQUE_INSECURE`    | 设为 `true` 时跳过 TLS 证书验证（配合 `USQUE_HTTP2` 使用，仅在信任的网络中使用）                   | `false`            |
 | `USQUE_DNS`         | 代理使用的 DNS，**空格分隔多个**（仅 `socks/http-proxy/portfw` 有效，例如 `1.1.1.1 1.0.0.1`）    | 空                  |
+
+---
+
+## TCP/HTTP2 模式（QUIC 被屏蔽时使用）
+
+上游 v2.0.0 新增 TCP/HTTP2 回退支持。当 QUIC（UDP）被防火墙屏蔽时，可通过 `USQUE_HTTP2=true` 切换为 TCP 连接：
+
+```yaml
+environment:
+  - USQUE_HTTP2=true       # 使用 TCP/HTTP2 代替 QUIC/HTTP3
+  - USQUE_INSECURE=true    # 可选：跳过 TLS 验证（仅限受信任网络）
+```
+
+配置文件中可手动指定 HTTP2 端点（留空则使用内置默认值 `162.159.198.2`）：
+
+```json
+{
+  "endpoint_h2_v4": "162.159.198.2",
+  "endpoint_h2_v6": ""
+}
+```
+
+> 注意：`USQUE_INSECURE=true` 会关闭 TLS 证书验证，存在中间人攻击风险，仅在遇到证书问题时临时使用。
 
 ---
 
