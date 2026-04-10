@@ -31,17 +31,19 @@ if [ "$cmd" = "register" ]; then
 fi
 
 # 首次无配置：自动注册（有 JWT 走 Zero Trust，否则个人 WARP）
-if [ ! -f "$USQUE_CONFIG" ]; then
+# enroll 模式无需自动注册（配置不存在时 enroll 本身会报错，保留原始错误信息更有用）
+if [ ! -f "$USQUE_CONFIG" ] && [ "$cmd" != "enroll" ]; then
   log "未检测到配置文件：$USQUE_CONFIG，自动执行注册（默认同意 ToS）"
-  reg_args="register -a"
-  [ -n "${USQUE_JWT:-}" ]         && reg_args="$reg_args --jwt $USQUE_JWT"
-  [ -n "${USQUE_DEVICE_NAME:-}" ] && reg_args="$reg_args -n $USQUE_DEVICE_NAME"
-  log "执行：usque $reg_args"
-  /bin/usque -c "$USQUE_CONFIG" $reg_args || {
+  set -- -a
+  [ -n "${USQUE_JWT:-}" ]         && set -- --jwt "$USQUE_JWT" "$@"
+  [ -n "${USQUE_DEVICE_NAME:-}" ] && set -- -n "$USQUE_DEVICE_NAME" "$@"
+  log "执行：usque register $*"
+  /bin/usque -c "$USQUE_CONFIG" register "$@" || {
     log "注册失败，请检查网络或参数（USQUE_JWT/USQUE_DEVICE_NAME）。容器退出。"
     exit 2
   }
   log "注册完成，继续启动服务。"
+  set --
 fi
 
 # ===================== SNI 自动判定（显式传 USQUE_SNI 则不覆盖） =====================
@@ -80,8 +82,9 @@ case "$cmd" in
   socks|http-proxy|nativetun|portfw)
     [ -n "${USQUE_SNI:-}" ]               && set -- -s "$USQUE_SNI" "$@"
     [ -n "${USQUE_MTU:-}" ]               && set -- -m "$USQUE_MTU" "$@"
-    [ "${USQUE_HTTP2:-false}" = "true" ]  && set -- --http2 "$@"
-    [ "${USQUE_INSECURE:-false}" = "true" ] && set -- --insecure "$@"
+    [ "${USQUE_HTTP2:-false}" = "true" ]    && set -- --http2 "$@"
+    [ "${USQUE_HTTP2:-false}" = "true" ] && \
+      [ "${USQUE_INSECURE:-false}" = "true" ] && set -- --insecure "$@"
     ;;
 esac
 
