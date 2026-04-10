@@ -41,7 +41,7 @@ docker pull ghcr.io/superng6/usque:bbr-tun
 
 手动触发 GitHub Actions `Build Image` 时建议：
 
-- `upstream_repo`：指定上游仓库（默认 `Diniboy1123/usque`，BBR 场景可指向 BBR 分支 fork）。
+- `upstream_repo`：指定上游仓库（默认 `https://github.com/Diniboy1123/usque.git`，也支持 `owner/repo` 简写）。
 - `ref`：指定 tag/分支/commit（留空时自动取上游最新 tag）。
 - `channel`：`stable` 或 `bbr`，用于隔离发布通道，避免 BBR 灰度影响 `latest`。
 
