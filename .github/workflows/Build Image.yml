@@ -10,7 +10,7 @@ on:
       upstream_repo:
         description: '可选：指定上游仓库（用于 BBR 分支或私有 fork）'
         required: false
-        default: 'https://github.com/Diniboy1123/usque.git'
+        default: ''
       channel:
         description: '发布通道（stable 或 bbr）'
         required: false
@@ -67,7 +67,17 @@ jobs:
 
           RESOLVED_SHA="$(git ls-remote "$UPSTREAM_REPO" "$VERSION" | awk '{print $1}' | head -n1)"
           if [ -z "$RESOLVED_SHA" ]; then
-            RESOLVED_SHA="$VERSION"
+            if echo "$VERSION" | grep -Eq '^[0-9a-fA-F]{40}$'; then
+              if git ls-remote "$UPSTREAM_REPO" | awk '{print $1}' | grep -Eq "^${VERSION}$"; then
+                RESOLVED_SHA="$VERSION"
+              else
+                echo "指定的 commit 不存在于上游仓库: $VERSION"
+                exit 1
+              fi
+            else
+              echo "指定的 ref 不存在于上游仓库: $VERSION"
+              exit 1
+            fi
           fi
 
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -139,7 +149,6 @@ jobs:
             org.opencontainers.image.source=${{ needs.prepare.outputs.upstream_repo }}
             org.opencontainers.image.revision=${{ needs.prepare.outputs.resolved_sha }}
             org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
-            org.opencontainers.image.ref.name=${{ needs.prepare.outputs.version }}
           tags: |
             ${{ env.DOCKER_IMAGE }}
             ${{ env.GHCR_IMAGE }}

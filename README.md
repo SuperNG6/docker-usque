@@ -27,6 +27,7 @@ docker pull superng6/usque:bbr-tun
 # 或从 GHCR 拉取
 docker pull ghcr.io/superng6/usque:latest
 docker pull ghcr.io/superng6/usque:bbr
+docker pull ghcr.io/superng6/usque:bbr-tun
 ````
 
 ---
