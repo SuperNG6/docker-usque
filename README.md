@@ -16,11 +16,38 @@ Docker Hub：https://hub.docker.com/r/superng6/usque
 ## 镜像信息
 
 ```bash
-# 拉取镜像
+# 稳定通道（默认）
 docker pull superng6/usque:latest
-或
+docker pull superng6/usque:tun
+
+# BBR 通道（上游 BBR 分支）
+docker pull superng6/usque:bbr
+docker pull superng6/usque:bbr-tun
+
+# 或从 GHCR 拉取
 docker pull ghcr.io/superng6/usque:latest
+docker pull ghcr.io/superng6/usque:bbr
 ````
+
+---
+
+## 上游分支与发布治理（生产规范）
+
+- 稳定通道：`channel=stable`，标签为 `latest` / `tun` 与版本标签（如 `vX.Y.Z`、`vX.Y.Z-tun`）。
+- BBR 通道：`channel=bbr`，标签为 `bbr` / `bbr-tun` 与版本标签（如 `vX.Y.Z-bbr`、`vX.Y.Z-tun-bbr`）。
+- BBR 改动应长期维护在上游独立分支（建议：`feature/bbr-production`），并定期与上游主干同步。
+- 每次发布必须固定上游 `repo + ref`，CI 会记录解析后的提交 SHA 作为可回滚依据。
+
+手动触发 GitHub Actions `Build Image` 时建议：
+
+- `upstream_repo`：指定上游仓库（默认 `Diniboy1123/usque`，BBR 场景可指向 BBR 分支 fork）。
+- `ref`：指定 tag/分支/commit（留空时自动取上游最新 tag）。
+- `channel`：`stable` 或 `bbr`，用于隔离发布通道，避免 BBR 灰度影响 `latest`。
+
+回滚建议：
+
+- 直接回滚到历史稳定标签（如 `vX.Y.Z` 或 `vX.Y.Z-tun`）。
+- BBR 通道异常时，仅回滚 `bbr` / `bbr-tun`，不影响稳定通道。
 
 ---
 
@@ -252,4 +279,3 @@ environment:
   * 启用 `USQUE_USER` / `USQUE_PASS`，并配合防火墙限制来源
 * 删除 `usque_data` 文件夹会丢失注册信息，需要重新 `register`
 * usque 自身的用法、参数细节请参考上游仓库文档
-

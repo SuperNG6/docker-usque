@@ -7,6 +7,14 @@ on:
         description: '可选：指定构建的上游 tag/分支/提交（留空则自动取上游最新 tag）'
         required: false
         default: ''
+      upstream_repo:
+        description: '可选：指定上游仓库（用于 BBR 分支或私有 fork）'
+        required: false
+        default: 'https://github.com/Diniboy1123/usque.git'
+      channel:
+        description: '发布通道（stable 或 bbr）'
+        required: false
+        default: 'stable'
   schedule:
     - cron: '0 4 * * *'   # 每天 04:00 UTC 自动检查上游最新 tag
 
@@ -24,16 +32,31 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.set-version.outputs.version }}
+      upstream_repo: ${{ steps.set-version.outputs.upstream_repo }}
+      resolved_sha: ${{ steps.set-version.outputs.resolved_sha }}
+      channel: ${{ steps.set-version.outputs.channel }}
     steps:
       - name: 获取上游版本
         id: set-version
         env:
           INPUT_REF: ${{ github.event.inputs.ref }}
+          INPUT_UPSTREAM_REPO: ${{ github.event.inputs.upstream_repo }}
+          INPUT_CHANNEL: ${{ github.event.inputs.channel }}
         run: |
+          UPSTREAM_REPO="${INPUT_UPSTREAM_REPO:-${{ env.UPSTREAM_REPO }}}"
+          CHANNEL="${INPUT_CHANNEL:-stable}"
+          case "$CHANNEL" in
+            stable|bbr) ;;
+            *)
+              echo "不支持的 channel: $CHANNEL（仅支持 stable / bbr）"
+              exit 1
+              ;;
+          esac
+
           if [ -n "$INPUT_REF" ]; then
             VERSION="$INPUT_REF"
           else
-            VERSION=$(git ls-remote --tags --refs "${{ env.UPSTREAM_REPO }}" \
+            VERSION=$(git ls-remote --tags --refs "${UPSTREAM_REPO}" \
               | awk -F/ '{print $3}' \
               | sort -V \
               | tail -n1)
@@ -41,8 +64,20 @@ jobs:
               VERSION="main"
             fi
           fi
+
+          RESOLVED_SHA="$(git ls-remote "$UPSTREAM_REPO" "$VERSION" | awk '{print $1}' | head -n1)"
+          if [ -z "$RESOLVED_SHA" ]; then
+            RESOLVED_SHA="$VERSION"
+          fi
+
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "upstream_repo=$UPSTREAM_REPO" >> $GITHUB_OUTPUT
+          echo "resolved_sha=$RESOLVED_SHA" >> $GITHUB_OUTPUT
+          echo "channel=$CHANNEL" >> $GITHUB_OUTPUT
           echo "🎯 构建版本: $VERSION"
+          echo "📦 上游仓库: $UPSTREAM_REPO"
+          echo "🔖 发布通道: $CHANNEL"
+          echo "🧬 解析提交: $RESOLVED_SHA"
 
   build:
     runs-on: ubuntu-latest
@@ -54,11 +89,13 @@ jobs:
           - name: lite
             dockerfile: Dockerfile
             suffix: ""
-            extra: "latest"
+            extra_stable: "latest"
+            extra_bbr: "bbr"
           - name: tun
             dockerfile: Dockerfile-tun
             suffix: "-tun"
-            extra: "tun"
+            extra_stable: "tun"
+            extra_bbr: "bbr-tun"
         platform:
           - linux/amd64
           - linux/arm64
@@ -96,7 +133,13 @@ jobs:
           platforms: ${{ matrix.platform }}
           push: true
           build-args: |
+            USQUE_REPO=${{ needs.prepare.outputs.upstream_repo }}
             USQUE_REF=${{ needs.prepare.outputs.version }}
+          labels: |
+            org.opencontainers.image.source=${{ needs.prepare.outputs.upstream_repo }}
+            org.opencontainers.image.revision=${{ needs.prepare.outputs.resolved_sha }}
+            org.opencontainers.image.version=${{ needs.prepare.outputs.version }}
+            org.opencontainers.image.ref.name=${{ needs.prepare.outputs.version }}
           tags: |
             ${{ env.DOCKER_IMAGE }}
             ${{ env.GHCR_IMAGE }}
@@ -124,10 +167,12 @@ jobs:
         variant:
           - name: lite
             suffix: ""
-            extra: "latest"
+            extra_stable: "latest"
+            extra_bbr: "bbr"
           - name: tun
             suffix: "-tun"
-            extra: "tun"
+            extra_stable: "tun"
+            extra_bbr: "bbr-tun"
     steps:
       - name: 下载 digests
         uses: actions/download-artifact@v4
@@ -155,14 +200,29 @@ jobs:
       - name: 创建并推送 manifest (${{ matrix.variant.name }})
         working-directory: /tmp/digests
         run: |
+          VERSION_TAG="${{ needs.prepare.outputs.version }}${{ matrix.variant.suffix }}"
+          if [ "${{ needs.prepare.outputs.channel }}" = "bbr" ]; then
+            VERSION_TAG="${VERSION_TAG}-bbr"
+            EXTRA_TAG="${{ matrix.variant.extra_bbr }}"
+          else
+            EXTRA_TAG="${{ matrix.variant.extra_stable }}"
+          fi
+
           docker buildx imagetools create \
-            -t ${{ env.DOCKER_IMAGE }}:${{ needs.prepare.outputs.version }}${{ matrix.variant.suffix }} \
-            -t ${{ env.DOCKER_IMAGE }}:${{ matrix.variant.extra }} \
-            -t ${{ env.GHCR_IMAGE }}:${{ needs.prepare.outputs.version }}${{ matrix.variant.suffix }} \
-            -t ${{ env.GHCR_IMAGE }}:${{ matrix.variant.extra }} \
+            -t ${{ env.DOCKER_IMAGE }}:${VERSION_TAG} \
+            -t ${{ env.DOCKER_IMAGE }}:${EXTRA_TAG} \
+            -t ${{ env.GHCR_IMAGE }}:${VERSION_TAG} \
+            -t ${{ env.GHCR_IMAGE }}:${EXTRA_TAG} \
             $(printf '${{ env.DOCKER_IMAGE }}@sha256:%s ' *)
 
       - name: 检查 manifest
         run: |
-          docker buildx imagetools inspect ${{ env.DOCKER_IMAGE }}:${{ needs.prepare.outputs.version }}${{ matrix.variant.suffix }}
-          docker buildx imagetools inspect ${{ env.DOCKER_IMAGE }}:${{ matrix.variant.extra }}
+          VERSION_TAG="${{ needs.prepare.outputs.version }}${{ matrix.variant.suffix }}"
+          if [ "${{ needs.prepare.outputs.channel }}" = "bbr" ]; then
+            VERSION_TAG="${VERSION_TAG}-bbr"
+            EXTRA_TAG="${{ matrix.variant.extra_bbr }}"
+          else
+            EXTRA_TAG="${{ matrix.variant.extra_stable }}"
+          fi
+          docker buildx imagetools inspect ${{ env.DOCKER_IMAGE }}:${VERSION_TAG}
+          docker buildx imagetools inspect ${{ env.DOCKER_IMAGE }}:${EXTRA_TAG}
