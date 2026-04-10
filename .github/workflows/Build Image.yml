@@ -91,6 +91,7 @@ jobs:
             }'
           )"
           if [ -z "$RESOLVED_SHA" ]; then
+            # Git 完整提交 SHA-1 固定为 40 位十六进制字符
             if echo "$VERSION" | grep -Eq '^[0-9a-fA-F]{40}$'; then
               if printf '%s\n' "$ALL_REFS" | awk '{print $1}' | grep -Fxi "$VERSION" > /dev/null; then
                 RESOLVED_SHA="$VERSION"
@@ -230,8 +231,8 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 创建并推送 manifest (${{ matrix.variant.name }})
-        working-directory: /tmp/digests
+      - name: 计算发布标签
+        id: tags
         run: |
           VERSION_TAG="${{ needs.prepare.outputs.version }}${{ matrix.variant.suffix }}"
           if [ "${{ needs.prepare.outputs.channel }}" = "bbr" ]; then
@@ -240,22 +241,20 @@ jobs:
           else
             EXTRA_TAG="${{ matrix.variant.extra_stable }}"
           fi
+          echo "version_tag=$VERSION_TAG" >> $GITHUB_OUTPUT
+          echo "extra_tag=$EXTRA_TAG" >> $GITHUB_OUTPUT
 
+      - name: 创建并推送 manifest (${{ matrix.variant.name }})
+        working-directory: /tmp/digests
+        run: |
           docker buildx imagetools create \
-            -t ${{ env.DOCKER_IMAGE }}:${VERSION_TAG} \
-            -t ${{ env.DOCKER_IMAGE }}:${EXTRA_TAG} \
-            -t ${{ env.GHCR_IMAGE }}:${VERSION_TAG} \
-            -t ${{ env.GHCR_IMAGE }}:${EXTRA_TAG} \
+            -t ${{ env.DOCKER_IMAGE }}:${{ steps.tags.outputs.version_tag }} \
+            -t ${{ env.DOCKER_IMAGE }}:${{ steps.tags.outputs.extra_tag }} \
+            -t ${{ env.GHCR_IMAGE }}:${{ steps.tags.outputs.version_tag }} \
+            -t ${{ env.GHCR_IMAGE }}:${{ steps.tags.outputs.extra_tag }} \
             $(printf '${{ env.DOCKER_IMAGE }}@sha256:%s ' *)
 
       - name: 检查 manifest
         run: |
-          VERSION_TAG="${{ needs.prepare.outputs.version }}${{ matrix.variant.suffix }}"
-          if [ "${{ needs.prepare.outputs.channel }}" = "bbr" ]; then
-            VERSION_TAG="${VERSION_TAG}-bbr"
-            EXTRA_TAG="${{ matrix.variant.extra_bbr }}"
-          else
-            EXTRA_TAG="${{ matrix.variant.extra_stable }}"
-          fi
-          docker buildx imagetools inspect ${{ env.DOCKER_IMAGE }}:${VERSION_TAG}
-          docker buildx imagetools inspect ${{ env.DOCKER_IMAGE }}:${EXTRA_TAG}
+          docker buildx imagetools inspect ${{ env.DOCKER_IMAGE }}:${{ steps.tags.outputs.version_tag }}
+          docker buildx imagetools inspect ${{ env.DOCKER_IMAGE }}:${{ steps.tags.outputs.extra_tag }}
