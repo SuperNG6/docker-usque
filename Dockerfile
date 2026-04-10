@@ -3,6 +3,8 @@ FROM golang:1.25.5-alpine AS builder
 RUN apk add --no-cache git
 WORKDIR /src
 
+ARG TARGETARCH
+ARG TARGETVARIANT
 ARG USQUE_REPO="https://github.com/Diniboy1123/usque.git"
 ARG USQUE_REF="main"   # 由 CI 传入：上游最新 tag（或指定 ref）
 
@@ -13,7 +15,12 @@ RUN git clone --depth=1 --branch "${USQUE_REF}" "${USQUE_REPO}" . \
      git fetch --tags --force && \
      git checkout "${USQUE_REF}")
 
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/usque .
+# 根据 TARGETVARIANT 自动判断并设置 GOAMD64
+# amd64+v3 -> GOAMD64=v3, amd64+v2 -> GOAMD64=v2, 其他 -> 使用默认值
+RUN if [ "${TARGETARCH}" = "amd64" ] && { [ "${TARGETVARIANT}" = "v3" ] || [ "${TARGETVARIANT}" = "v2" ]; }; then \
+        export GOAMD64="${TARGETVARIANT}"; \
+    fi; \
+    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/usque .
 
 # ---- runtime ----
 FROM alpine
