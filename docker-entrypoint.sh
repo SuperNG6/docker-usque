@@ -7,13 +7,13 @@ set -e
 # USQUE_MTU: 可选，MASQUE MTU（如 1200），仅在 socks/http-proxy/nativetun/portfw 下生效
 mkdir -p "$(dirname "$USQUE_CONFIG")"
 
-log() { echo "[entrypoint] $*"; }
+log() { echo "[entrypoint] $*" >&2; }
 
 # ===================== 解析子命令 =====================
 if [ "$#" -gt 0 ]; then
   case "$1" in
     -*) set -- "$USQUE_MODE" "$@";;   # 只给了标志位：补默认模式
-    usque) shift;;                    # 支持写成 "usque socks ..."
+    usque) shift; [ "$#" -eq 0 ] && set -- "$USQUE_MODE" ;;   # 支持写成 "usque socks ..."，仅传 usque 时补默认模式
   esac
 else
   set -- "$USQUE_MODE"
@@ -24,21 +24,25 @@ cmd="$1"; shift || true
 # ===================== 注册流程 =====================
 if [ "$cmd" = "register" ]; then
   log "进入注册流程（配置保存到 $USQUE_CONFIG，默认同意 ToS）"
-  set -- -a "$@"
-  [ -n "${USQUE_JWT:-}" ]         && set -- --jwt "$USQUE_JWT" "$@"
-  [ -n "${USQUE_DEVICE_NAME:-}" ] && set -- -n "$USQUE_DEVICE_NAME" "$@"
-  exec /bin/usque -c "$USQUE_CONFIG" register "$@"
+  # 构建固定参数（顺序：--jwt → -n → -a），用户额外参数追加在最后
+  reg_args=""
+  [ -n "${USQUE_JWT:-}" ]         && reg_args="$reg_args --jwt $USQUE_JWT"
+  [ -n "${USQUE_DEVICE_NAME:-}" ] && reg_args="$reg_args -n $USQUE_DEVICE_NAME"
+  # shellcheck disable=SC2086
+  exec /bin/usque -c "$USQUE_CONFIG" register -a $reg_args "$@"
 fi
 
 # 首次无配置：自动注册（有 JWT 走 Zero Trust，否则个人 WARP）
 # enroll 模式无需自动注册（配置不存在时 enroll 本身会报错，保留原始错误信息更有用）
 if [ ! -f "$USQUE_CONFIG" ] && [ "$cmd" != "enroll" ]; then
   log "未检测到配置文件：$USQUE_CONFIG，自动执行注册（默认同意 ToS）"
-  set -- -a
-  [ -n "${USQUE_JWT:-}" ]         && set -- --jwt "$USQUE_JWT" "$@"
-  [ -n "${USQUE_DEVICE_NAME:-}" ] && set -- -n "$USQUE_DEVICE_NAME" "$@"
-  log "执行：usque register $*"
-  /bin/usque -c "$USQUE_CONFIG" register "$@" || {
+  # 构建固定参数（顺序：--jwt → -n → -a），不传入用户原始参数
+  reg_args=""
+  [ -n "${USQUE_JWT:-}" ]         && reg_args="$reg_args --jwt $USQUE_JWT"
+  [ -n "${USQUE_DEVICE_NAME:-}" ] && reg_args="$reg_args -n $USQUE_DEVICE_NAME"
+  log "执行：usque register -a$reg_args"
+  # shellcheck disable=SC2086
+  /bin/usque -c "$USQUE_CONFIG" register -a $reg_args || {
     log "注册失败，请检查网络或参数（USQUE_JWT/USQUE_DEVICE_NAME）。容器退出。"
     exit 2
   }
@@ -97,7 +101,7 @@ if [ "$cmd" = "socks" ] || [ "$cmd" = "http-proxy" ] || [ "$cmd" = "portfw" ]; t
   [ -n "${USQUE_PASS:-}" ] && set -- -w "$USQUE_PASS" "$@"
   if [ -n "${USQUE_DNS:-}" ]; then
     for dns in $USQUE_DNS; do
-      [ -n "$dns" ] && set -- -d "$dns" "$@"
+      [ -n "$dns" ] && set -- "$@" -d "$dns"  # 追加而非前插，保持用户指定的 DNS 顺序
     done
   fi
 fi
