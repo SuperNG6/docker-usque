@@ -48,6 +48,12 @@ jobs:
       - name: 检查版本是否已构建
         id: check-exists
         run: |
+          # 手动触发时强制构建，不做存在检测
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "🔨 手动触发，强制构建"
+            exit 0
+          fi
           VERSION="${{ steps.set-version.outputs.version }}"
           HTTP_STATUS=$(curl -sf -o /dev/null -w "%{http_code}" \
             "https://hub.docker.com/v2/repositories/${{ env.DOCKER_IMAGE }}/tags/${VERSION}/")
