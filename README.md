@@ -84,6 +84,7 @@ services:
     environment:
       - USQUE_MODE=nativetun
       - USQUE_CONFIG=/app/config.json
+      - USQUE_PERSIST=false        # true：启用 nativetun --persist（退出后保留 TUN 接口）
     volumes:
       - ./usque_data:/app
     cap_add:
@@ -217,6 +218,7 @@ docker compose up -d usque-socks usque-http
 | `USQUE_MTU`         | MTU值，默认1280，bt下载推荐1200                                                                        | 空                  |
 | `USQUE_HTTP2`       | 设为 `true` 时通过 TCP/HTTP2 连接（默认 QUIC/HTTP3），适合 QUIC 被屏蔽的网络环境                    | `false`            |
 | `USQUE_INSECURE`    | 设为 `true` 时跳过 TLS 证书验证（配合 `USQUE_HTTP2` 使用，仅在信任的网络中使用）                   | `false`            |
+| `USQUE_PERSIST`     | 设为 `true` 时在 `nativetun` 模式启用 `--persist`（退出后保留 TUN 接口）                             | `false`            |
 | `USQUE_DNS`         | 代理使用的 DNS，**空格分隔多个**（仅 `socks/http-proxy/portfw` 有效，例如 `1.1.1.1 1.0.0.1`）    | 空                  |
 
 ---
@@ -252,4 +254,3 @@ environment:
   * 启用 `USQUE_USER` / `USQUE_PASS`，并配合防火墙限制来源
 * 删除 `usque_data` 文件夹会丢失注册信息，需要重新 `register`
 * usque 自身的用法、参数细节请参考上游仓库文档
-

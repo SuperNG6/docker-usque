@@ -85,6 +85,7 @@ case "$cmd" in
     [ "${USQUE_HTTP2:-false}" = "true" ]    && set -- --http2 "$@"
     [ "${USQUE_HTTP2:-false}" = "true" ] && \
       [ "${USQUE_INSECURE:-false}" = "true" ] && set -- --insecure "$@"
+    [ "$cmd" = "nativetun" ] && [ "${USQUE_PERSIST:-false}" = "true" ] && set -- --persist "$@"
     ;;
 esac
 
