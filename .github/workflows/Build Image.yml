@@ -16,7 +16,7 @@ env:
   UPSTREAM_REPO: https://github.com/Diniboy1123/usque.git
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
@@ -124,3 +124,25 @@ jobs:
         run: |
           docker buildx imagetools inspect \
             ${{ env.DOCKER_IMAGE }}:${{ needs.prepare.outputs.version }}${{ matrix.variant.suffix }}
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [prepare, build]
+    if: needs.prepare.outputs.skip != 'true'
+    steps:
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.version }}
+          name: ${{ needs.prepare.outputs.version }}
+          body: |
+            ## Docker 镜像
+
+            ### Docker Hub
+            - `${{ env.DOCKER_IMAGE }}:${{ needs.prepare.outputs.version }}` (lite)
+            - `${{ env.DOCKER_IMAGE }}:${{ needs.prepare.outputs.version }}-tun` (tun)
+
+            ### GitHub Container Registry
+            - `${{ env.GHCR_IMAGE }}:${{ needs.prepare.outputs.version }}` (lite)
+            - `${{ env.GHCR_IMAGE }}:${{ needs.prepare.outputs.version }}-tun` (tun)
+          generate_release_notes: false
