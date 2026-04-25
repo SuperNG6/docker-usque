@@ -146,12 +146,12 @@ jobs:
             --title "usque $VERSION" \
             --notes "## Docker 镜像
 
-| 变体 | 镜像 |
-|------|------|
-| lite | \`${{ env.DOCKER_IMAGE }}:${VERSION}\` |
-| tun  | \`${{ env.DOCKER_IMAGE }}:${VERSION}-tun\` |
-| lite (GHCR) | \`${{ env.GHCR_IMAGE }}:${VERSION}\` |
-| tun  (GHCR) | \`${{ env.GHCR_IMAGE }}:${VERSION}-tun\` |
+          | 变体 | 镜像 |
+          |------|------|
+          | lite | \`${{ env.DOCKER_IMAGE }}:${VERSION}\` |
+          | tun  | \`${{ env.DOCKER_IMAGE }}:${VERSION}-tun\` |
+          | lite (GHCR) | \`${{ env.GHCR_IMAGE }}:${VERSION}\` |
+          | tun  (GHCR) | \`${{ env.GHCR_IMAGE }}:${VERSION}-tun\` |
 
-上游版本：https://github.com/Diniboy1123/usque/releases/tag/${VERSION}"
+          上游版本：https://github.com/Diniboy1123/usque/releases/tag/${VERSION}"
           echo "✅ Release $VERSION 创建成功"
