@@ -16,7 +16,7 @@ env:
   UPSTREAM_REPO: https://github.com/Diniboy1123/usque.git
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
@@ -124,3 +124,34 @@ jobs:
         run: |
           docker buildx imagetools inspect \
             ${{ env.DOCKER_IMAGE }}:${{ needs.prepare.outputs.version }}${{ matrix.variant.suffix }}
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [prepare, build]
+    if: needs.prepare.outputs.skip != 'true' && needs.prepare.outputs.version != 'main'
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 创建 GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          if gh release view "$VERSION" > /dev/null 2>&1; then
+            echo "⏭️ Release $VERSION 已存在，跳过"
+            exit 0
+          fi
+          gh release create "$VERSION" \
+            --title "usque $VERSION" \
+            --notes "## Docker 镜像
+
+| 变体 | 镜像 |
+|------|------|
+| lite | \`${{ env.DOCKER_IMAGE }}:${VERSION}\` |
+| tun  | \`${{ env.DOCKER_IMAGE }}:${VERSION}-tun\` |
+| lite (GHCR) | \`${{ env.GHCR_IMAGE }}:${VERSION}\` |
+| tun  (GHCR) | \`${{ env.GHCR_IMAGE }}:${VERSION}-tun\` |
+
+上游版本：https://github.com/Diniboy1123/usque/releases/tag/${VERSION}"
+          echo "✅ Release $VERSION 创建成功"
