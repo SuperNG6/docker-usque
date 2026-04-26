@@ -123,14 +123,6 @@ if [ "$cmd" = "socks" ] || [ "$cmd" = "http-proxy" ]; then
   fi
 fi
 
-# 连接/断开钩子（所有隧道模式）
-case "$cmd" in
-  socks|http-proxy|nativetun|portfw)
-    [ -n "${USQUE_ON_CONNECT:-}" ]    && set -- --on-connect "$USQUE_ON_CONNECT" "$@"
-    [ -n "${USQUE_ON_DISCONNECT:-}" ] && set -- --on-disconnect "$USQUE_ON_DISCONNECT" "$@"
-    ;;
-esac
-
 # nativetun 友好提示
 if [ "$cmd" = "nativetun" ] && [ ! -e /dev/net/tun ]; then
   log "警告：未发现 /dev/net/tun。请以 --cap-add NET_ADMIN --device /dev/net/tun 运行容器。"
