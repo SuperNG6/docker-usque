@@ -114,6 +114,23 @@ if [ "$cmd" = "socks" ] || [ "$cmd" = "http-proxy" ] || [ "$cmd" = "portfw" ]; t
 fi
 # 说明：nativetun 默认不改 DNS，保持系统/路由自行处理
 
+# socks/http-proxy DNS 模式（USQUE_LOCAL_DNS + USQUE_SYSTEM_DNS）
+if [ "$cmd" = "socks" ] || [ "$cmd" = "http-proxy" ]; then
+  if [ "${USQUE_LOCAL_DNS:-false}" = "true" ]; then
+    set -- -l "$@"
+    # --system-dns 仅在 --local-dns 开启时有效
+    [ "${USQUE_SYSTEM_DNS:-false}" = "true" ] && set -- --system-dns "$@"
+  fi
+fi
+
+# 连接/断开钩子（所有隧道模式）
+case "$cmd" in
+  socks|http-proxy|nativetun|portfw)
+    [ -n "${USQUE_ON_CONNECT:-}" ]    && set -- --on-connect "$USQUE_ON_CONNECT" "$@"
+    [ -n "${USQUE_ON_DISCONNECT:-}" ] && set -- --on-disconnect "$USQUE_ON_DISCONNECT" "$@"
+    ;;
+esac
+
 # nativetun 友好提示
 if [ "$cmd" = "nativetun" ] && [ ! -e /dev/net/tun ]; then
   log "警告：未发现 /dev/net/tun。请以 --cap-add NET_ADMIN --device /dev/net/tun 运行容器。"
