@@ -31,12 +31,15 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 # ---- runtime ----
 FROM alpine
 ARG BUILD_VARIANT=lite
+ARG BUILD_VERSION=unknown
 RUN if [ "$BUILD_VARIANT" = "tun" ]; then \
       apk add --no-cache ca-certificates tzdata iproute2; \
     else \
       apk add --no-cache ca-certificates; \
     fi
 WORKDIR /app
+
+RUN echo "${BUILD_VERSION}" > /etc/usque-version
 
 COPY --from=builder /out/usque /bin/usque
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
