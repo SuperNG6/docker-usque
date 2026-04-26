@@ -112,6 +112,7 @@ jobs:
           build-args: |
             USQUE_REF=${{ needs.prepare.outputs.version }}
             BUILD_VARIANT=${{ matrix.variant.name }}
+            BUILD_VERSION=${{ needs.prepare.outputs.version }}
           tags: |
             ${{ env.DOCKER_IMAGE }}:${{ needs.prepare.outputs.version }}${{ matrix.variant.suffix }}
             ${{ env.DOCKER_IMAGE }}:${{ matrix.variant.extra }}
