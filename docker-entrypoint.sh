@@ -9,6 +9,13 @@ mkdir -p "$(dirname "$USQUE_CONFIG")"
 
 log() { echo "[entrypoint] $*" >&2; }
 
+# ===================== 版本信息 =====================
+_ver="$(cat /etc/usque-version 2>/dev/null || echo '未知')"
+echo "================================================" >&2
+echo "  版本：usque ${_ver}" >&2
+echo "================================================" >&2
+unset _ver
+
 # ===================== 解析子命令 =====================
 if [ "$#" -gt 0 ]; then
   case "$1" in
@@ -106,6 +113,15 @@ if [ "$cmd" = "socks" ] || [ "$cmd" = "http-proxy" ] || [ "$cmd" = "portfw" ]; t
   fi
 fi
 # 说明：nativetun 默认不改 DNS，保持系统/路由自行处理
+
+# socks/http-proxy DNS 模式（USQUE_LOCAL_DNS + USQUE_SYSTEM_DNS）
+if [ "$cmd" = "socks" ] || [ "$cmd" = "http-proxy" ]; then
+  if [ "${USQUE_LOCAL_DNS:-false}" = "true" ]; then
+    set -- -l "$@"
+    # --system-dns 仅在 --local-dns 开启时有效
+    [ "${USQUE_SYSTEM_DNS:-false}" = "true" ] && set -- --system-dns "$@"
+  fi
+fi
 
 # nativetun 友好提示
 if [ "$cmd" = "nativetun" ] && [ ! -e /dev/net/tun ]; then

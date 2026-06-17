@@ -47,6 +47,8 @@ services:
       - USQUE_JWT=
       - USQUE_DEVICE_NAME=
       - USQUE_DNS=1.1.1.1 1.0.0.1  # 可选：多个 DNS 用空格分隔（仅 socks/http-proxy/portfw 有效）
+      - USQUE_LOCAL_DNS=false       # true：DNS 走宿主机（使用 USQUE_DNS 指定的服务器）
+      - USQUE_SYSTEM_DNS=false      # true：DNS 走宿主机 /etc/resolv.conf（需配合 USQUE_LOCAL_DNS=true）
       - USQUE_HTTP2=false           # true：通过 TCP/HTTP2 连接（QUIC 被屏蔽时使用）
       - USQUE_INSECURE=false        # true：跳过 TLS 验证（仅配合 USQUE_HTTP2=true 使用）
     volumes:
@@ -69,6 +71,8 @@ services:
       - USQUE_PASS=
       - USQUE_SNI=
       - USQUE_DNS=1.1.1.1 1.0.0.1
+      - USQUE_LOCAL_DNS=false       # true：DNS 走宿主机（使用 USQUE_DNS 指定的服务器）
+      - USQUE_SYSTEM_DNS=false      # true：DNS 走宿主机 /etc/resolv.conf（需配合 USQUE_LOCAL_DNS=true）
       - USQUE_HTTP2=false
       - USQUE_INSECURE=false
     volumes:
@@ -220,6 +224,8 @@ docker compose up -d usque-socks usque-http
 | `USQUE_INSECURE`    | 设为 `true` 时跳过 TLS 证书验证（配合 `USQUE_HTTP2` 使用，仅在信任的网络中使用）                   | `false`            |
 | `USQUE_PERSIST`     | 设为 `true` 时在 `nativetun` 模式启用 `--persist`（退出后保留 TUN 接口）                             | `false`            |
 | `USQUE_DNS`         | 代理使用的 DNS，**空格分隔多个**（仅 `socks/http-proxy/portfw` 有效，例如 `1.1.1.1 1.0.0.1`）    | 空                  |
+| `USQUE_LOCAL_DNS`   | 设为 `true` 时 DNS 查询走宿主机而非隧道，使用 `USQUE_DNS` 指定的服务器（仅 `socks/http-proxy`）  | `false`            |
+| `USQUE_SYSTEM_DNS`  | 设为 `true` 时改用宿主机 `/etc/resolv.conf`，忽略 `USQUE_DNS`（**必须配合 `USQUE_LOCAL_DNS=true` 使用**，仅 `socks/http-proxy`） | `false`            |
 
 ---
 
