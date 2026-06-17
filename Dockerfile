@@ -1,5 +1,6 @@
 # ---- build ----
-FROM golang:1.25.5-alpine AS builder
+ARG GO_VERSION=1.26.3
+FROM golang:${GO_VERSION}-alpine AS builder
 RUN apk add --no-cache git
 WORKDIR /src
 
