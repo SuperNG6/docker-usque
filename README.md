@@ -205,7 +205,7 @@ environment:
   - USQUE_MODE=l4-http-proxy  # L4 HTTP CONNECT
 ```
 
-L4 模式复用 `USQUE_BIND`、`USQUE_PORT`、`USQUE_USER`、`USQUE_PASS`、`USQUE_DNS`。上游 L4 子命令不支持 `-s`，因此不会使用 `USQUE_SNI`。
+L4 模式复用 `USQUE_BIND`、`USQUE_PORT`、`USQUE_USER`、`USQUE_PASS`、`USQUE_DNS`，并支持 `USQUE_INSECURE=true` 透传上游 `--insecure`。上游 L4 子命令不支持 `-s`、`-m`、`--http2`，因此不会使用 `USQUE_SNI`、`USQUE_MTU`、`USQUE_HTTP2`。
 
 ### 启动 TUN 模式（可选）
 
@@ -249,10 +249,25 @@ docker compose up -d usque-socks usque-http
 | `USQUE_PASS`        | 代理密码                                                                         | 空                  |
 | `USQUE_MTU`         | MTU值（仅 `socks/http-proxy/nativetun/portfw` 生效，L4 模式不支持 `-m`）                                                                        | 空                  |
 | `USQUE_HTTP2`       | 设为 `true` 时通过 TCP/HTTP2 连接（仅 `socks/http-proxy/nativetun/portfw` 生效）                    | `false`            |
-| `USQUE_INSECURE`    | 设为 `true` 时跳过 TLS 证书验证（配合 `USQUE_HTTP2` 使用，仅在信任的网络中使用；L4 模式不通过此变量设置）                   | `false`            |
+| `USQUE_INSECURE`    | 设为 `true` 时跳过 TLS 证书验证（普通模式配合 `USQUE_HTTP2` 使用；L4 模式直接透传 `--insecure`；仅在信任的网络中使用）                   | `false`            |
 | `USQUE_PERSIST`     | 设为 `true` 时在 `nativetun` 模式启用 `--persist`（退出后保留 TUN 接口）                             | `false`            |
 | `USQUE_DNS`         | 代理使用的 DNS，**空格分隔多个**（仅 `socks/http-proxy/l4-socks/l4-http-proxy/portfw` 有效，例如 `1.1.1.1 1.0.0.1`）    | 空                  |
 | `USQUE_BANNER`      | 设为 `false` 时关闭启动 Banner                                              | `true`             |
+
+---
+
+## 错误配置回退
+
+入口脚本会尽量让容器以可用默认值启动，而不是把明显错误的环境变量传给上游命令：
+
+* `USQUE_MODE` 无效时回退到 `socks`
+* `USQUE_PORT` 无效时按模式回退：`socks/l4-socks=1080`，`http-proxy/l4-http-proxy=8000`
+* 布尔变量只接受 `true` / `false`，无效值会回退默认值
+* 只设置 `USQUE_USER` 或只设置 `USQUE_PASS` 时禁用代理认证
+* L4 模式会忽略不支持的 `USQUE_SNI`、`USQUE_MTU`、`USQUE_HTTP2`
+* `nativetun` 缺少 `/dev/net/tun` 时回退到 `socks`
+
+这些回退只处理容器环境变量。已有 `config.json` 内容损坏时仍由上游 `usque` 报错，避免入口脚本擅自覆盖注册配置。
 
 ---
 

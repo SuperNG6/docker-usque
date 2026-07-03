@@ -11,6 +11,113 @@ mkdir -p "$(dirname "$USQUE_CONFIG")"
 
 log() { echo "[entrypoint] $*" >&2; }
 
+normalize_bool() {
+  var_name="$1"
+  default_value="$2"
+  eval "value=\"\${$var_name:-}\""
+
+  case "$value" in
+    "")
+      eval "$var_name=\$default_value"
+      ;;
+    true|false)
+      ;;
+    *)
+      log "警告：$var_name=$value 无效，已回退为 $default_value"
+      eval "$var_name=\$default_value"
+      ;;
+  esac
+}
+
+is_valid_port() {
+  case "$1" in
+    ""|*[!0-9]*) return 1 ;;
+  esac
+  [ "$1" -ge 1 ] && [ "$1" -le 65535 ]
+}
+
+default_port_for_mode() {
+  case "$1" in
+    socks|l4-socks) printf '%s\n' 1080 ;;
+    http-proxy|l4-http-proxy) printf '%s\n' 8000 ;;
+    *) printf '%s\n' "" ;;
+  esac
+}
+
+normalize_port() {
+  [ -z "${USQUE_PORT:-}" ] && return 0
+  is_valid_port "$USQUE_PORT" && return 0
+
+  fallback_port="$(default_port_for_mode "$cmd")"
+  if [ -n "$fallback_port" ]; then
+    log "警告：USQUE_PORT=$USQUE_PORT 无效，已回退为 $fallback_port"
+    USQUE_PORT="$fallback_port"
+  else
+    log "警告：USQUE_PORT=$USQUE_PORT 无效，已忽略"
+    USQUE_PORT=""
+  fi
+}
+
+normalize_auth() {
+  case "$cmd" in
+    socks|http-proxy|l4-socks|l4-http-proxy)
+      if { [ -n "${USQUE_USER:-}" ] && [ -z "${USQUE_PASS:-}" ]; } || \
+         { [ -z "${USQUE_USER:-}" ] && [ -n "${USQUE_PASS:-}" ]; }; then
+        log "警告：认证配置不完整，已禁用代理认证"
+        USQUE_USER=""
+        USQUE_PASS=""
+      fi
+      ;;
+  esac
+}
+
+warn_ignored_env() {
+  var_name="$1"
+  reason="$2"
+  eval "value=\"\${$var_name:-}\""
+  [ -z "$value" ] && return 0
+
+  log "警告：${cmd} 不支持 ${var_name}，已忽略（${reason}）"
+  eval "$var_name="
+}
+
+warn_ignored_true_env() {
+  var_name="$1"
+  reason="$2"
+  eval "value=\"\${$var_name:-false}\""
+  [ "$value" = "true" ] || return 0
+
+  log "警告：${cmd} 不支持 ${var_name}，已忽略（${reason}）"
+  eval "$var_name=false"
+}
+
+is_supported_command() {
+  case "$1" in
+    socks|http-proxy|l4-socks|l4-http-proxy|nativetun|portfw|register|enroll|help|version|completion|-h|--help)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+normalize_mode_specific_env() {
+  case "$cmd" in
+    l4-socks|l4-http-proxy)
+      warn_ignored_env USQUE_SNI "L4 子命令无 -s/--sni"
+      warn_ignored_env USQUE_MTU "L4 子命令无 -m/--mtu"
+      warn_ignored_true_env USQUE_HTTP2 "L4 子命令无 --http2"
+      warn_ignored_true_env USQUE_PERSIST "仅 nativetun 支持 --persist"
+      ;;
+    socks|http-proxy|portfw)
+      warn_ignored_true_env USQUE_PERSIST "仅 nativetun 支持 --persist"
+      ;;
+    nativetun)
+      ;;
+  esac
+}
+
 has_help_flag() {
   for arg do
     case "$arg" in
@@ -132,16 +239,43 @@ fi
 
 cmd="$1"; shift || true
 
+help_requested=false
+if has_help_flag "$cmd" "$@"; then
+  help_requested=true
+fi
+
+if ! is_supported_command "$cmd"; then
+  log "警告：USQUE_MODE=$cmd 无效，已回退为 socks"
+  cmd="socks"
+  set --
+fi
+
+if [ "$help_requested" != "true" ]; then
+  normalize_bool USQUE_HTTP2 false
+  normalize_bool USQUE_INSECURE false
+  normalize_bool USQUE_PERSIST false
+  normalize_bool USQUE_BANNER true
+
+  if [ "$cmd" = "nativetun" ] && [ ! -e /dev/net/tun ]; then
+    log "警告：nativetun 需要 /dev/net/tun，已回退为 socks"
+    cmd="socks"
+    set --
+  fi
+
+  normalize_port
+  normalize_auth
+  normalize_mode_specific_env
+fi
+
 # ===================== 注册流程 =====================
 if [ "$cmd" = "register" ]; then
-  log "进入注册流程（配置保存到 $USQUE_CONFIG，默认同意 ToS）"
+  log "进入注册流程（配置保存到 ${USQUE_CONFIG}，默认同意 ToS）"
   run_register exec "$@"
 fi
 
 # 首次无配置：自动注册（有 JWT 走 Zero Trust，否则个人 WARP）
 # enroll / 信息类命令无需自动注册，配置不存在时保留原始命令行为更有用
 skip_auto_register=false
-help_requested=false
 case "$cmd" in
   enroll|help|version|completion|-h|--help) skip_auto_register=true ;;
 esac
@@ -151,7 +285,7 @@ if has_help_flag "$cmd" "$@"; then
 fi
 
 if [ ! -f "$USQUE_CONFIG" ] && [ "$skip_auto_register" != "true" ]; then
-  log "未检测到配置文件：$USQUE_CONFIG，自动执行注册（默认同意 ToS）"
+  log "未检测到配置文件：${USQUE_CONFIG}，自动执行注册（默认同意 ToS）"
   log_register_command
   run_register run || {
     log "注册失败，请检查网络或参数（USQUE_JWT/USQUE_DEVICE_NAME）。容器退出。"
@@ -187,7 +321,7 @@ if [ "$help_requested" != "true" ] && [ "$supports_sni" = "true" ] && [ -z "${US
     # C. 个人常见段：172.x.x.x → consumer
     elif [ "$OCT1" = "172" ]; then
       USQUE_SNI="consumer-masque.cloudflareclient.com"
-      log "检测到个人 WARP (ipv4=$IPV4_IN_CFG)，默认 SNI=$USQUE_SNI"
+      log "检测到个人 WARP (ipv4=${IPV4_IN_CFG})，默认 SNI=$USQUE_SNI"
 
     else
       log "未能从 ipv4=$IPV4_IN_CFG 判断出类型，不设置默认 SNI（可用 USQUE_SNI 覆盖）"
@@ -206,6 +340,9 @@ if [ "$help_requested" != "true" ]; then
       [ "${USQUE_HTTP2:-false}" = "true" ] && \
         [ "${USQUE_INSECURE:-false}" = "true" ] && set -- --insecure "$@"
       [ "$cmd" = "nativetun" ] && [ "${USQUE_PERSIST:-false}" = "true" ] && set -- --persist "$@"
+      ;;
+    l4-socks|l4-http-proxy)
+      [ "${USQUE_INSECURE:-false}" = "true" ] && set -- --insecure "$@"
       ;;
   esac
 

@@ -94,6 +94,7 @@ jobs:
           sh -n docker-entrypoint.sh \
             tests/entrypoint-banner.sh \
             tests/entrypoint-l4-modes.sh \
+            tests/entrypoint-fallbacks.sh \
             tests/dockerfile-runtime-metadata.sh \
             tests/entrypoint-registration.sh
 
@@ -102,6 +103,7 @@ jobs:
           shellcheck docker-entrypoint.sh \
             tests/entrypoint-banner.sh \
             tests/entrypoint-l4-modes.sh \
+            tests/entrypoint-fallbacks.sh \
             tests/dockerfile-runtime-metadata.sh \
             tests/entrypoint-registration.sh
 
@@ -109,6 +111,7 @@ jobs:
         run: |
           sh tests/entrypoint-banner.sh
           sh tests/entrypoint-l4-modes.sh
+          sh tests/entrypoint-fallbacks.sh
           sh tests/dockerfile-runtime-metadata.sh
           sh tests/entrypoint-registration.sh
 
