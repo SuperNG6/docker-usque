@@ -4,7 +4,7 @@
 基于 [usque](https://github.com/Diniboy1123/usque) 的 Docker 镜像，用来在容器中运行 Cloudflare WARP / ZeroTrust MASQUE 代理。
 
 - Docker Hub：`superng6/usque`
-- 支持：`socks`（SOCKS5）、`http-proxy`（HTTP CONNECT）、`nativetun`、`portfw`、`register`、`enroll`
+- 支持：`socks`（SOCKS5）、`http-proxy`（HTTP CONNECT）、`l4-socks`、`l4-http-proxy`、`nativetun`、`portfw`、`register`、`enroll`
 
 ---
 ```
@@ -36,7 +36,7 @@ services:
     container_name: usque-socks
     restart: unless-stopped
     environment:
-      - USQUE_MODE=socks           # 运行模式：socks / http-proxy / nativetun / portfw / enroll / register
+      - USQUE_MODE=socks           # 运行模式：socks / http-proxy / l4-socks / l4-http-proxy / nativetun / portfw / enroll / register
       - USQUE_MTU=1200
       - USQUE_CONFIG=/app/config.json
       - USQUE_BIND=0.0.0.0
@@ -46,7 +46,7 @@ services:
       - USQUE_SNI=
       - USQUE_JWT=
       - USQUE_DEVICE_NAME=
-      - USQUE_DNS=1.1.1.1 1.0.0.1  # 可选：多个 DNS 用空格分隔（仅 socks/http-proxy/portfw 有效）
+      - USQUE_DNS=1.1.1.1 1.0.0.1  # 可选：多个 DNS 用空格分隔（仅代理/portfw 模式有效）
       - USQUE_HTTP2=false           # true：通过 TCP/HTTP2 连接（QUIC 被屏蔽时使用）
       - USQUE_INSECURE=false        # true：跳过 TLS 验证（仅配合 USQUE_HTTP2=true 使用）
     volumes:
@@ -75,6 +75,28 @@ services:
       - ./usque_data:/app
     ports:
       - 8000:8000
+
+  # L4 SOCKS5 代理（TCP-only，更轻量；示例使用宿主机 1081，避免和 usque-socks 冲突）
+  usque-l4-socks:
+    image: superng6/usque:latest
+    container_name: usque-l4-socks
+    restart: unless-stopped
+    environment:
+      - USQUE_MODE=l4-socks
+      - USQUE_MTU=1200
+      - USQUE_CONFIG=/app/config.json
+      - USQUE_BIND=0.0.0.0
+      - USQUE_PORT=1080
+      - USQUE_USER=
+      - USQUE_PASS=
+      - USQUE_SNI=
+      - USQUE_DNS=1.1.1.1 1.0.0.1
+      - USQUE_HTTP2=false
+      - USQUE_INSECURE=false
+    volumes:
+      - ./usque_data:/app
+    ports:
+      - 1081:1080
 
   # TUN 模式（高级用法，需要 /dev/net/tun 和 NET_ADMIN）
   usque-tun:
@@ -175,6 +197,19 @@ curl -x http://127.0.0.1:8000 https://cloudflare.com/cdn-cgi/trace
 curl -x http://user:pass@127.0.0.1:8000 https://cloudflare.com/cdn-cgi/trace
 ```
 
+### 启动 L4 代理（TCP-only）
+
+L4 模式跳过完整用户态网络栈，适合只需要 TCP 代理的场景。使用上游原生命令名：
+
+```yaml
+environment:
+  - USQUE_MODE=l4-socks       # L4 SOCKS5
+  # 或
+  - USQUE_MODE=l4-http-proxy  # L4 HTTP CONNECT
+```
+
+L4 模式复用 `USQUE_BIND`、`USQUE_PORT`、`USQUE_USER`、`USQUE_PASS`、`USQUE_DNS`、`USQUE_SNI`、`USQUE_MTU`、`USQUE_HTTP2`、`USQUE_INSECURE`。
+
 ### 启动 TUN 模式（可选）
 
 ```bash
@@ -206,20 +241,42 @@ docker compose up -d usque-socks usque-http
 
 | 变量名                 | 说明                                                                           | 默认值                |
 | ------------------- | ---------------------------------------------------------------------------- | ------------------ |
-| `USQUE_MODE`        | 运行模式：`socks` / `http-proxy` / `nativetun` / `portfw` / `enroll` / `register` | `socks`            |
+| `USQUE_MODE`        | 运行模式：`socks` / `http-proxy` / `l4-socks` / `l4-http-proxy` / `nativetun` / `portfw` / `enroll` / `register` | `socks`            |
 | `USQUE_CONFIG`      | 配置文件路径                                                                       | `/app/config.json` |
 | `USQUE_JWT`         | ZeroTrust team token（首次无配置时自动走 `register -a --jwt`）                          | 空                  |
 | `USQUE_DEVICE_NAME` | 注册时设备名称（`register -n`）                                                       | 空                  |
-| `USQUE_SNI`         | 自定义 SNI（仅隧道模式生效：`socks/http-proxy/nativetun/portfw`）                         | 空                  |
-| `USQUE_BIND`        | 代理绑定地址（socks/http-proxy）                                                     | `0.0.0.0`          |
-| `USQUE_PORT`        | 代理端口（socks 默认 1080，http-proxy 默认 8000）                                       | 视模式而定              |
+| `USQUE_SNI`         | 自定义 SNI（仅隧道模式生效：`socks/http-proxy/l4-socks/l4-http-proxy/nativetun/portfw`）                         | 空                  |
+| `USQUE_BIND`        | 代理绑定地址（socks/http-proxy/l4-socks/l4-http-proxy）                                                     | `0.0.0.0`          |
+| `USQUE_PORT`        | 代理端口（socks/l4-socks 默认 1080，http-proxy/l4-http-proxy 默认 8000）                                       | 视模式而定              |
 | `USQUE_USER`        | 代理用户名（仅支持一个 user:pass）                                                       | 空                  |
 | `USQUE_PASS`        | 代理密码                                                                         | 空                  |
 | `USQUE_MTU`         | MTU值，默认1280，bt下载推荐1200                                                                        | 空                  |
 | `USQUE_HTTP2`       | 设为 `true` 时通过 TCP/HTTP2 连接（默认 QUIC/HTTP3），适合 QUIC 被屏蔽的网络环境                    | `false`            |
 | `USQUE_INSECURE`    | 设为 `true` 时跳过 TLS 证书验证（配合 `USQUE_HTTP2` 使用，仅在信任的网络中使用）                   | `false`            |
 | `USQUE_PERSIST`     | 设为 `true` 时在 `nativetun` 模式启用 `--persist`（退出后保留 TUN 接口）                             | `false`            |
-| `USQUE_DNS`         | 代理使用的 DNS，**空格分隔多个**（仅 `socks/http-proxy/portfw` 有效，例如 `1.1.1.1 1.0.0.1`）    | 空                  |
+| `USQUE_DNS`         | 代理使用的 DNS，**空格分隔多个**（仅 `socks/http-proxy/l4-socks/l4-http-proxy/portfw` 有效，例如 `1.1.1.1 1.0.0.1`）    | 空                  |
+| `USQUE_BANNER`      | 设为 `false` 时关闭启动 Banner                                              | `true`             |
+
+---
+
+## 启动 Banner
+
+容器启动时会在日志中打印简短 Banner，展示镜像版本、变体、运行模式、监听地址、认证状态、DNS、传输方式、SNI、MTU 等排障信息：
+
+```text
+========================================
+ docker-usque
+ version   : v2.0.0, variant=lite
+ mode      : l4-socks
+ config    : /app/config.json
+ listen    : 0.0.0.0:1080
+ auth      : enabled
+ dns       : 1.1.1.1 1.0.0.1
+ transport : quic, sni=consumer-masque.cloudflareclient.com, mtu=1200
+========================================
+```
+
+`version` 和 `variant` 由 Dockerfile 在 runtime 阶段根据 `USQUE_REF` 和 `BUILD_VARIANT` 写入。Banner 不会打印 `USQUE_PASS`、`USQUE_JWT`、私钥、token 或 license。
 
 ---
 

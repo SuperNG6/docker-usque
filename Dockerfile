@@ -31,7 +31,10 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 
 # ---- runtime ----
 FROM alpine
+ARG USQUE_REF=main
 ARG BUILD_VARIANT=lite
+ENV USQUE_VERSION="${USQUE_REF}" \
+    USQUE_IMAGE_VARIANT="${BUILD_VARIANT}"
 RUN if [ "$BUILD_VARIANT" = "tun" ]; then \
       apk add --no-cache ca-certificates tzdata iproute2; \
     else \
