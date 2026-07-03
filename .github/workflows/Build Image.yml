@@ -182,7 +182,7 @@ jobs:
     if: needs.prepare.outputs.skip != 'true' && needs.prepare.outputs.version != 'main'
     steps:
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 创建 GitHub Release
         env:
