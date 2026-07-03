@@ -89,10 +89,7 @@ services:
       - USQUE_PORT=1080
       - USQUE_USER=
       - USQUE_PASS=
-      - USQUE_SNI=
       - USQUE_DNS=1.1.1.1 1.0.0.1
-      - USQUE_HTTP2=false
-      - USQUE_INSECURE=false
     volumes:
       - ./usque_data:/app
     ports:
@@ -208,7 +205,7 @@ environment:
   - USQUE_MODE=l4-http-proxy  # L4 HTTP CONNECT
 ```
 
-L4 模式复用 `USQUE_BIND`、`USQUE_PORT`、`USQUE_USER`、`USQUE_PASS`、`USQUE_DNS`、`USQUE_SNI`、`USQUE_MTU`、`USQUE_HTTP2`、`USQUE_INSECURE`。
+L4 模式复用 `USQUE_BIND`、`USQUE_PORT`、`USQUE_USER`、`USQUE_PASS`、`USQUE_DNS`。上游 L4 子命令不支持 `-s`，因此不会使用 `USQUE_SNI`。
 
 ### 启动 TUN 模式（可选）
 
@@ -245,14 +242,14 @@ docker compose up -d usque-socks usque-http
 | `USQUE_CONFIG`      | 配置文件路径                                                                       | `/app/config.json` |
 | `USQUE_JWT`         | ZeroTrust team token（首次无配置时自动走 `register -a --jwt`）                          | 空                  |
 | `USQUE_DEVICE_NAME` | 注册时设备名称（`register -n`）                                                       | 空                  |
-| `USQUE_SNI`         | 自定义 SNI（仅隧道模式生效：`socks/http-proxy/l4-socks/l4-http-proxy/nativetun/portfw`）                         | 空                  |
+| `USQUE_SNI`         | 自定义 SNI（仅 `socks/http-proxy/nativetun/portfw` 生效，L4 模式不支持）                         | 空                  |
 | `USQUE_BIND`        | 代理绑定地址（socks/http-proxy/l4-socks/l4-http-proxy）                                                     | `0.0.0.0`          |
 | `USQUE_PORT`        | 代理端口（socks/l4-socks 默认 1080，http-proxy/l4-http-proxy 默认 8000）                                       | 视模式而定              |
 | `USQUE_USER`        | 代理用户名（仅支持一个 user:pass）                                                       | 空                  |
 | `USQUE_PASS`        | 代理密码                                                                         | 空                  |
-| `USQUE_MTU`         | MTU值，默认1280，bt下载推荐1200                                                                        | 空                  |
-| `USQUE_HTTP2`       | 设为 `true` 时通过 TCP/HTTP2 连接（默认 QUIC/HTTP3），适合 QUIC 被屏蔽的网络环境                    | `false`            |
-| `USQUE_INSECURE`    | 设为 `true` 时跳过 TLS 证书验证（配合 `USQUE_HTTP2` 使用，仅在信任的网络中使用）                   | `false`            |
+| `USQUE_MTU`         | MTU值（仅 `socks/http-proxy/nativetun/portfw` 生效，L4 模式不支持 `-m`）                                                                        | 空                  |
+| `USQUE_HTTP2`       | 设为 `true` 时通过 TCP/HTTP2 连接（仅 `socks/http-proxy/nativetun/portfw` 生效）                    | `false`            |
+| `USQUE_INSECURE`    | 设为 `true` 时跳过 TLS 证书验证（配合 `USQUE_HTTP2` 使用，仅在信任的网络中使用；L4 模式不通过此变量设置）                   | `false`            |
 | `USQUE_PERSIST`     | 设为 `true` 时在 `nativetun` 模式启用 `--persist`（退出后保留 TUN 接口）                             | `false`            |
 | `USQUE_DNS`         | 代理使用的 DNS，**空格分隔多个**（仅 `socks/http-proxy/l4-socks/l4-http-proxy/portfw` 有效，例如 `1.1.1.1 1.0.0.1`）    | 空                  |
 | `USQUE_BANNER`      | 设为 `false` 时关闭启动 Banner                                              | `true`             |
@@ -261,7 +258,7 @@ docker compose up -d usque-socks usque-http
 
 ## 启动 Banner
 
-容器启动时会在日志中打印简短 Banner，展示镜像版本、变体、运行模式、监听地址、认证状态、DNS、传输方式、SNI、MTU 等排障信息：
+容器启动时会在日志中打印简短 Banner，展示镜像版本、变体、运行模式、监听地址、认证状态、DNS、传输方式等排障信息。普通隧道模式还会展示 SNI、MTU 等字段：
 
 ```text
 ========================================
@@ -272,7 +269,7 @@ docker compose up -d usque-socks usque-http
  listen    : 0.0.0.0:1080
  auth      : enabled
  dns       : 1.1.1.1 1.0.0.1
- transport : quic, sni=consumer-masque.cloudflareclient.com, mtu=1200
+ transport : quic
 ========================================
 ```
 

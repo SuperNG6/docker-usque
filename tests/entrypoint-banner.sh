@@ -46,7 +46,7 @@ grep -Fq "config    : $CONFIG_FILE" "$STDERR_FILE"
 grep -Fq "listen    : 127.0.0.1:18080" "$STDERR_FILE"
 grep -Fq "auth      : enabled" "$STDERR_FILE"
 grep -Fq "dns       : 1.1.1.1 1.0.0.1" "$STDERR_FILE"
-grep -Fq "transport : http2, sni=consumer-masque.cloudflareclient.com, mtu=1200, insecure=true" "$STDERR_FILE"
+grep -Fq "transport : quic" "$STDERR_FILE"
 if grep -Fq "pass" "$STDERR_FILE"; then
   exit 1
 fi

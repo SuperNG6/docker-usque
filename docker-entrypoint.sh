@@ -6,7 +6,7 @@ set -e
 : "${USQUE_MODE:=socks}"                # 默认子命令：socks | http-proxy | l4-socks | l4-http-proxy | nativetun | portfw | enroll | register
 : "${USQUE_VERSION:=unknown}"           # 构建时写入的上游 usque ref/tag
 : "${USQUE_IMAGE_VARIANT:=unknown}"     # 构建变体：lite | tun
-# USQUE_MTU: 可选，MASQUE MTU（如 1200），仅在 socks/http-proxy/l4-socks/l4-http-proxy/nativetun/portfw 下生效
+# USQUE_MTU: 可选，MASQUE MTU（如 1200），仅在 socks/http-proxy/nativetun/portfw 下生效
 mkdir -p "$(dirname "$USQUE_CONFIG")"
 
 log() { echo "[entrypoint] $*" >&2; }
@@ -100,7 +100,7 @@ print_banner() {
   esac
 
   case "$cmd" in
-    socks|http-proxy|l4-socks|l4-http-proxy|nativetun|portfw)
+    socks|http-proxy|nativetun|portfw)
       if [ "${USQUE_HTTP2:-false}" = "true" ]; then
         transport="http2"
       else
@@ -110,6 +110,9 @@ print_banner() {
       [ -n "${USQUE_MTU:-}" ] && transport="$transport, mtu=$USQUE_MTU"
       [ "${USQUE_HTTP2:-false}" = "true" ] && transport="$transport, insecure=${USQUE_INSECURE:-false}"
       printf ' %-10s: %s\n' 'transport' "$transport" >&2
+      ;;
+    l4-socks|l4-http-proxy)
+      printf ' %-10s: %s\n' 'transport' 'quic' >&2
       ;;
   esac
 
@@ -158,7 +161,12 @@ if [ ! -f "$USQUE_CONFIG" ] && [ "$skip_auto_register" != "true" ]; then
 fi
 
 # ===================== SNI 自动判定（显式传 USQUE_SNI 则不覆盖） =====================
-if [ "$help_requested" != "true" ] && [ -z "${USQUE_SNI:-}" ] && [ -r "$USQUE_CONFIG" ]; then
+case "$cmd" in
+  socks|http-proxy|nativetun|portfw) supports_sni=true ;;
+  *) supports_sni=false ;;
+esac
+
+if [ "$help_requested" != "true" ] && [ "$supports_sni" = "true" ] && [ -z "${USQUE_SNI:-}" ] && [ -r "$USQUE_CONFIG" ]; then
   # 取 license 与 ipv4 字段（尽量兼容 busybox）
   LICENSE_IN_CFG="$(sed -n 's/.*"license"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$USQUE_CONFIG" | head -n1)"
   IPV4_IN_CFG="$(sed -n 's/.*"ipv4"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$USQUE_CONFIG" | head -n1)"
@@ -191,7 +199,7 @@ fi
 # 仅对会建立隧道的模式添加 SNI/MTU/HTTP2/INSECURE，避免 register/enroll 报 unknown flag
 if [ "$help_requested" != "true" ]; then
   case "$cmd" in
-    socks|http-proxy|l4-socks|l4-http-proxy|nativetun|portfw)
+    socks|http-proxy|nativetun|portfw)
       [ -n "${USQUE_SNI:-}" ]               && set -- -s "$USQUE_SNI" "$@"
       [ -n "${USQUE_MTU:-}" ]               && set -- -m "$USQUE_MTU" "$@"
       [ "${USQUE_HTTP2:-false}" = "true" ]    && set -- --http2 "$@"

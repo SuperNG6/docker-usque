@@ -53,12 +53,6 @@ user
 18080
 -b
 127.0.0.1
---insecure
---http2
--m
-1200
--s
-consumer-masque.cloudflareclient.com
 -d
 1.1.1.1
 -d
@@ -66,6 +60,11 @@ consumer-masque.cloudflareclient.com
 EOF_EXPECTED
 
   diff -u "$expected" "$CAPTURE_FILE"
+  if grep -Fxq -- "-s" "$CAPTURE_FILE" ||
+     grep -Fxq -- "-m" "$CAPTURE_FILE" ||
+     grep -Fxq -- "--http2" "$CAPTURE_FILE"; then
+    exit 1
+  fi
 }
 
 assert_l4_proxy_args l4-socks
