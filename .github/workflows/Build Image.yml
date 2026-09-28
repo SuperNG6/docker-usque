@@ -91,29 +91,19 @@ jobs:
 
       - name: Shell 语法检查
         run: |
-          sh -n docker-entrypoint.sh \
-            tests/entrypoint-banner.sh \
-            tests/entrypoint-l4-modes.sh \
-            tests/entrypoint-fallbacks.sh \
-            tests/dockerfile-runtime-metadata.sh \
-            tests/entrypoint-registration.sh
+          for script in docker-entrypoint.sh tests/*.sh; do
+            sh -n "$script"
+          done
 
       - name: ShellCheck 静态检查
         run: |
-          shellcheck docker-entrypoint.sh \
-            tests/entrypoint-banner.sh \
-            tests/entrypoint-l4-modes.sh \
-            tests/entrypoint-fallbacks.sh \
-            tests/dockerfile-runtime-metadata.sh \
-            tests/entrypoint-registration.sh
+          shellcheck docker-entrypoint.sh tests/*.sh
 
       - name: 运行入口脚本回归测试
         run: |
-          sh tests/entrypoint-banner.sh
-          sh tests/entrypoint-l4-modes.sh
-          sh tests/entrypoint-fallbacks.sh
-          sh tests/dockerfile-runtime-metadata.sh
-          sh tests/entrypoint-registration.sh
+          for script in tests/*.sh; do
+            sh "$script"
+          done
 
   build:
     runs-on: ubuntu-latest

@@ -48,6 +48,7 @@ services:
       - USQUE_DEVICE_NAME=
       - USQUE_DNS=1.1.1.1 1.0.0.1  # 可选：多个 DNS 用空格分隔（仅代理/portfw 模式有效）
       - USQUE_HTTP2=false           # true：通过 TCP/HTTP2 连接（QUIC 被屏蔽时使用）
+      - USQUE_IPV6=false            # true：使用 IPv6 端点连接 MASQUE
       - USQUE_INSECURE=false        # true：跳过 TLS 验证（仅配合 USQUE_HTTP2=true 使用）
     volumes:
       - ./usque_data:/app
@@ -249,6 +250,7 @@ docker compose up -d usque-socks usque-http
 | `USQUE_PASS`        | 代理密码                                                                         | 空                  |
 | `USQUE_MTU`         | MTU值（仅 `socks/http-proxy/nativetun/portfw` 生效，L4 模式不支持 `-m`）                                                                        | 空                  |
 | `USQUE_HTTP2`       | 设为 `true` 时通过 TCP/HTTP2 连接（仅 `socks/http-proxy/nativetun/portfw` 生效）                    | `false`            |
+| `USQUE_IPV6`        | 设为 `true` 时向连接模式传递 `--ipv6`，使用 IPv6 端点连接 MASQUE（包括 L4 模式）                       | `false`            |
 | `USQUE_INSECURE`    | 设为 `true` 时跳过 TLS 证书验证（普通模式配合 `USQUE_HTTP2` 使用；L4 模式直接透传 `--insecure`；仅在信任的网络中使用）                   | `false`            |
 | `USQUE_PERSIST`     | 设为 `true` 时在 `nativetun` 模式启用 `--persist`（退出后保留 TUN 接口）                             | `false`            |
 | `USQUE_DNS`         | 代理使用的 DNS，**空格分隔多个**（仅 `socks/http-proxy/l4-socks/l4-http-proxy/portfw` 有效，例如 `1.1.1.1 1.0.0.1`）    | 空                  |
@@ -289,6 +291,19 @@ docker compose up -d usque-socks usque-http
 ```
 
 `version` 和 `variant` 由 Dockerfile 在 runtime 阶段根据 `USQUE_REF` 和 `BUILD_VARIANT` 写入。Banner 不会打印 `USQUE_PASS`、`USQUE_JWT`、私钥、token 或 license。
+
+---
+
+## 使用 IPv6 连接 MASQUE
+
+在容器可访问 IPv6 网络且配置中有相应端点地址时，设置 `USQUE_IPV6=true` 即可将上游 `--ipv6` 传给 `socks`、`http-proxy`、`l4-socks`、`l4-http-proxy`、`nativetun` 或 `portfw`：
+
+```yaml
+environment:
+  - USQUE_IPV6=true
+```
+
+此选项选择容器到 MASQUE 端点的 IPv6 连接，不控制隧道内部的 IPv6 流量。使用 HTTP/2 时，还需在配置中设置 `endpoint_h2_v6`。
 
 ---
 

@@ -252,6 +252,7 @@ fi
 
 if [ "$help_requested" != "true" ]; then
   normalize_bool USQUE_HTTP2 false
+  normalize_bool USQUE_IPV6 false
   normalize_bool USQUE_INSECURE false
   normalize_bool USQUE_PERSIST false
   normalize_bool USQUE_BANNER true
@@ -330,18 +331,20 @@ if [ "$help_requested" != "true" ] && [ "$supports_sni" = "true" ] && [ -z "${US
 fi
 
 # ===================== 按模式补参数 =====================
-# 仅对会建立隧道的模式添加 SNI/MTU/HTTP2/INSECURE，避免 register/enroll 报 unknown flag
+# 仅对会建立隧道的模式添加连接参数，避免 register/enroll 报 unknown flag
 if [ "$help_requested" != "true" ]; then
   case "$cmd" in
     socks|http-proxy|nativetun|portfw)
       [ -n "${USQUE_SNI:-}" ]               && set -- -s "$USQUE_SNI" "$@"
       [ -n "${USQUE_MTU:-}" ]               && set -- -m "$USQUE_MTU" "$@"
+      [ "${USQUE_IPV6:-false}" = "true" ]     && set -- --ipv6 "$@"
       [ "${USQUE_HTTP2:-false}" = "true" ]    && set -- --http2 "$@"
       [ "${USQUE_HTTP2:-false}" = "true" ] && \
         [ "${USQUE_INSECURE:-false}" = "true" ] && set -- --insecure "$@"
       [ "$cmd" = "nativetun" ] && [ "${USQUE_PERSIST:-false}" = "true" ] && set -- --persist "$@"
       ;;
     l4-socks|l4-http-proxy)
+      [ "${USQUE_IPV6:-false}" = "true" ] && set -- --ipv6 "$@"
       [ "${USQUE_INSECURE:-false}" = "true" ] && set -- --insecure "$@"
       ;;
   esac
