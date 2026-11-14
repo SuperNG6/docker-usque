@@ -105,6 +105,7 @@ services:
       - USQUE_MODE=nativetun
       - USQUE_CONFIG=/app/config.json
       - USQUE_PERSIST=false        # true：启用 nativetun --persist（退出后保留 TUN 接口）
+      - USQUE_INTERFACE_NAME=      # 可选：自定义 TUN 网卡名称（如 warp0）
     volumes:
       - ./usque_data:/app
     cap_add:
@@ -253,6 +254,7 @@ docker compose up -d usque-socks usque-http
 | `USQUE_IPV6`        | 设为 `true` 时向连接模式传递 `--ipv6`，使用 IPv6 端点连接 MASQUE（包括 L4 模式）                       | `false`            |
 | `USQUE_INSECURE`    | 设为 `true` 时跳过 TLS 证书验证（普通模式配合 `USQUE_HTTP2` 使用；L4 模式直接透传 `--insecure`；仅在信任的网络中使用）                   | `false`            |
 | `USQUE_PERSIST`     | 设为 `true` 时在 `nativetun` 模式启用 `--persist`（退出后保留 TUN 接口）                             | `false`            |
+| `USQUE_INTERFACE_NAME` | 自定义 `nativetun` 的 TUN 网卡名称（对应上游 `-n/--interface-name`）。注意上游文档里的 `USQUE_IFACE` 是传给 connect/disconnect 钩子的只读变量，不能用来改名 | 空 |
 | `USQUE_DNS`         | 代理使用的 DNS，**空格分隔多个**（仅 `socks/http-proxy/l4-socks/l4-http-proxy/portfw` 有效，例如 `1.1.1.1 1.0.0.1`）    | 空                  |
 | `USQUE_BANNER`      | 设为 `false` 时关闭启动 Banner                                              | `true`             |
 

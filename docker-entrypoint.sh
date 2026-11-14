@@ -109,9 +109,20 @@ normalize_mode_specific_env() {
       warn_ignored_env USQUE_MTU "L4 子命令无 -m/--mtu"
       warn_ignored_true_env USQUE_HTTP2 "L4 子命令无 --http2"
       warn_ignored_true_env USQUE_PERSIST "仅 nativetun 支持 --persist"
+      warn_ignored_env USQUE_INTERFACE_NAME "仅 nativetun 支持 -n/--interface-name"
       ;;
-    socks|http-proxy|portfw)
+    socks|http-proxy)
       warn_ignored_true_env USQUE_PERSIST "仅 nativetun 支持 --persist"
+      warn_ignored_env USQUE_INTERFACE_NAME "仅 nativetun 支持 -n/--interface-name"
+      ;;
+    portfw)
+      warn_ignored_true_env USQUE_PERSIST "仅 nativetun 支持 --persist"
+      warn_ignored_env USQUE_INTERFACE_NAME "仅 nativetun 支持 -n/--interface-name"
+      # portfw 没有监听/认证参数，端口映射需通过命令行 -L/-R 传入
+      warn_ignored_env USQUE_BIND "portfw 无 -b，请用 -L/-R 指定映射"
+      warn_ignored_env USQUE_PORT "portfw 无 -p，请用 -L/-R 指定映射"
+      warn_ignored_env USQUE_USER "portfw 无代理认证"
+      warn_ignored_env USQUE_PASS "portfw 无代理认证"
       ;;
     nativetun)
       ;;
@@ -188,7 +199,7 @@ print_banner() {
       else
         tun_state="missing"
       fi
-      printf ' %-10s: /dev/net/tun %s, persist=%s\n' 'tun' "$tun_state" "${USQUE_PERSIST:-false}" >&2
+      printf ' %-10s: /dev/net/tun %s, persist=%s, iface=%s\n' 'tun' "$tun_state" "${USQUE_PERSIST:-false}" "${USQUE_INTERFACE_NAME:-default}" >&2
       ;;
   esac
 
@@ -342,6 +353,7 @@ if [ "$help_requested" != "true" ]; then
       [ "${USQUE_HTTP2:-false}" = "true" ] && \
         [ "${USQUE_INSECURE:-false}" = "true" ] && set -- --insecure "$@"
       [ "$cmd" = "nativetun" ] && [ "${USQUE_PERSIST:-false}" = "true" ] && set -- --persist "$@"
+      [ "$cmd" = "nativetun" ] && [ -n "${USQUE_INTERFACE_NAME:-}" ] && set -- -n "$USQUE_INTERFACE_NAME" "$@"
       ;;
     l4-socks|l4-http-proxy)
       [ "${USQUE_IPV6:-false}" = "true" ] && set -- --ipv6 "$@"
@@ -349,12 +361,16 @@ if [ "$help_requested" != "true" ]; then
       ;;
   esac
 
-  # socks/http-proxy/l4-socks/l4-http-proxy/portfw 的快捷参数（USQUE_DNS 可空格分隔多个）
-  if [ "$cmd" = "socks" ] || [ "$cmd" = "http-proxy" ] || [ "$cmd" = "l4-socks" ] || [ "$cmd" = "l4-http-proxy" ] || [ "$cmd" = "portfw" ]; then
+  # 代理模式的监听/认证快捷参数（portfw 没有 -b/-p/-u/-w，传入会报 unknown flag）
+  if [ "$cmd" = "socks" ] || [ "$cmd" = "http-proxy" ] || [ "$cmd" = "l4-socks" ] || [ "$cmd" = "l4-http-proxy" ]; then
     [ -n "${USQUE_BIND:-}" ] && set -- -b "$USQUE_BIND" "$@"
     [ -n "${USQUE_PORT:-}" ] && set -- -p "$USQUE_PORT" "$@"
     [ -n "${USQUE_USER:-}" ] && set -- -u "$USQUE_USER" "$@"
     [ -n "${USQUE_PASS:-}" ] && set -- -w "$USQUE_PASS" "$@"
+  fi
+
+  # socks/http-proxy/l4-socks/l4-http-proxy/portfw 的 DNS（USQUE_DNS 可空格分隔多个）
+  if [ "$cmd" = "socks" ] || [ "$cmd" = "http-proxy" ] || [ "$cmd" = "l4-socks" ] || [ "$cmd" = "l4-http-proxy" ] || [ "$cmd" = "portfw" ]; then
     if [ -n "${USQUE_DNS:-}" ]; then
       for dns in $USQUE_DNS; do
         [ -n "$dns" ] && set -- "$@" -d "$dns"  # 追加而非前插，保持用户指定的 DNS 顺序

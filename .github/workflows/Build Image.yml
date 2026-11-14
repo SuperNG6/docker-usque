@@ -18,6 +18,7 @@ env:
 permissions:
   contents: write
   packages: write
+  actions: write   # 供 keepalive 步骤重新启用本 workflow
 
 jobs:
   prepare:
@@ -27,7 +28,15 @@ jobs:
       go_version: ${{ steps.set-version.outputs.go_version }}
       skip: ${{ steps.check-exists.outputs.skip }}
     steps:
-      - name: 获取上游版本与 Go 版本
+      # 仓库 60 天无提交时 GitHub 会停用定时 workflow（disabled_inactivity），
+      # 导致上游发新版也不再自动构建；定时运行时调用 enable 接口重置计时
+      - name: 保持定时任务启用
+        if: github.event_name == 'schedule'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/Build%20Image.yml/enable"
+
         id: set-version
         env:
           INPUT_REF: ${{ github.event.inputs.ref }}
