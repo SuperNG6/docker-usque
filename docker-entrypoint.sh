@@ -58,6 +58,16 @@ normalize_port() {
   fi
 }
 
+normalize_mtu() {
+  [ -z "${USQUE_MTU:-}" ] && return 0
+  case "$USQUE_MTU" in
+    *[!0-9]*)
+      log "警告：USQUE_MTU=$USQUE_MTU 无效，已忽略（使用上游默认值）"
+      USQUE_MTU=""
+      ;;
+  esac
+}
+
 normalize_auth() {
   case "$cmd" in
     socks|http-proxy|l4-socks|l4-http-proxy)
@@ -93,7 +103,7 @@ warn_ignored_true_env() {
 
 is_supported_command() {
   case "$1" in
-    socks|http-proxy|l4-socks|l4-http-proxy|nativetun|portfw|register|enroll|help|version|completion|-h|--help)
+    socks|http-proxy|l4-socks|l4-http-proxy|nativetun|portfw|register|enroll|account|help|version|completion|-h|--help)
       return 0
       ;;
     *)
@@ -275,6 +285,7 @@ if [ "$help_requested" != "true" ]; then
   fi
 
   normalize_port
+  normalize_mtu
   normalize_auth
   normalize_mode_specific_env
 fi
@@ -289,7 +300,7 @@ fi
 # enroll / 信息类命令无需自动注册，配置不存在时保留原始命令行为更有用
 skip_auto_register=false
 case "$cmd" in
-  enroll|help|version|completion|-h|--help) skip_auto_register=true ;;
+  enroll|account|help|version|completion|-h|--help) skip_auto_register=true ;;
 esac
 if has_help_flag "$cmd" "$@"; then
   skip_auto_register=true

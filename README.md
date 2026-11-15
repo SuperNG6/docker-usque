@@ -4,7 +4,7 @@
 基于 [usque](https://github.com/Diniboy1123/usque) 的 Docker 镜像，用来在容器中运行 Cloudflare WARP / ZeroTrust MASQUE 代理。
 
 - Docker Hub：`superng6/usque`
-- 支持：`socks`（SOCKS5）、`http-proxy`（HTTP CONNECT）、`l4-socks`、`l4-http-proxy`、`nativetun`、`portfw`、`register`、`enroll`
+- 支持：`socks`（SOCKS5）、`http-proxy`（HTTP CONNECT）、`l4-socks`、`l4-http-proxy`、`nativetun`、`portfw`、`register`、`enroll`、`account`
 
 ---
 ```
@@ -220,6 +220,18 @@ docker compose run --rm --service-ports usque-tun
 
 ---
 
+## 账号管理 / 绑定 WARP+ License（account）
+
+上游的 `account` 子命令可直接透传，用于查看账号、绑定或解绑 License（需要已有 `config.json`，不会触发自动注册）：
+
+```bash
+docker compose run --rm usque-socks account info            # 查看账号信息
+docker compose run --rm usque-socks account set <LICENSE-KEY>   # 绑定 WARP+ License
+docker compose run --rm usque-socks account devices         # 查看同一 License 下的设备
+```
+
+---
+
 ## 刷新 IP / 更新配置（enroll）
 
 ZeroTrust 下如果 IPv4/IPv6 变更，可用 `enroll` 更新现有 `config.json`：
@@ -269,6 +281,8 @@ docker compose up -d usque-socks usque-http
 * 布尔变量只接受 `true` / `false`，无效值会回退默认值
 * 只设置 `USQUE_USER` 或只设置 `USQUE_PASS` 时禁用代理认证
 * L4 模式会忽略不支持的 `USQUE_SNI`、`USQUE_MTU`、`USQUE_HTTP2`
+* `USQUE_MTU` 不是纯数字时会被忽略，使用上游默认值
+* `portfw` 会忽略 `USQUE_BIND`、`USQUE_PORT`、`USQUE_USER`、`USQUE_PASS`（上游无对应参数，端口映射用 `-L/-R`）
 * `nativetun` 缺少 `/dev/net/tun` 时回退到 `socks`
 
 这些回退只处理容器环境变量。已有 `config.json` 内容损坏时仍由上游 `usque` 报错，避免入口脚本擅自覆盖注册配置。

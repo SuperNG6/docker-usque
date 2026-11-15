@@ -27,7 +27,10 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     if [ "${TARGETARCH}" = "amd64" ] && { [ "${TARGETVARIANT}" = "v3" ] || [ "${TARGETVARIANT}" = "v2" ]; }; then \
         export GOAMD64="${TARGETVARIANT}"; \
     fi; \
-    CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/usque .
+    USQUE_PKG="github.com/Diniboy1123/usque/cmd"; \
+    CGO_ENABLED=0 go build -trimpath \
+      -ldflags="-s -w -X ${USQUE_PKG}.version=${USQUE_REF} -X ${USQUE_PKG}.commit=$(git rev-parse --short HEAD) -X ${USQUE_PKG}.date=$(git log -1 --format=%cI)" \
+      -o /out/usque .
 
 # ---- runtime ----
 FROM alpine
