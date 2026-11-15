@@ -35,27 +35,48 @@ if grep -Fq "已回退为 socks" "$STDERR_FILE"; then
   exit 1
 fi
 
-# 非数字 MTU 被忽略；合法 MTU 正常传递
+# 无效 MTU（非数字、0、越界、会让上游整数溢出的超长值）回退为 1280，而不是让容器退出
 touch "$CONFIG_FILE"
+for bad_mtu in abc 12a0 0 65536 99999999999999999999 "-1" "1 280"; do
+  : > "$CAPTURE_FILE"
+  CAPTURE_FILE="$CAPTURE_FILE" \
+  USQUE_BANNER=false \
+  USQUE_CONFIG="$CONFIG_FILE" \
+  USQUE_MODE=socks \
+  USQUE_MTU="$bad_mtu" \
+    "$ENTRYPOINT_UNDER_TEST" 2> "$STDERR_FILE"
+
+  printf '%s\n' "-c $CONFIG_FILE socks -m 1280" > "$TMP_DIR/expected"
+  diff -u "$TMP_DIR/expected" "$CAPTURE_FILE"
+  grep -Fq "USQUE_MTU=$bad_mtu 无效，已回退为 1280" "$STDERR_FILE"
+done
+
+# 合法 MTU 原样传递；低于 1280 时保留并警告
+for good_mtu in 1280 1500 1200; do
+  : > "$CAPTURE_FILE"
+  CAPTURE_FILE="$CAPTURE_FILE" \
+  USQUE_BANNER=false \
+  USQUE_CONFIG="$CONFIG_FILE" \
+  USQUE_MODE=socks \
+  USQUE_MTU="$good_mtu" \
+    "$ENTRYPOINT_UNDER_TEST" 2> "$STDERR_FILE"
+
+  printf '%s\n' "-c $CONFIG_FILE socks -m $good_mtu" > "$TMP_DIR/expected"
+  diff -u "$TMP_DIR/expected" "$CAPTURE_FILE"
+  if grep -Fq "已回退为 1280" "$STDERR_FILE"; then
+    echo "valid MTU $good_mtu was replaced" >&2
+    exit 1
+  fi
+done
+grep -Fq "USQUE_MTU=1200 小于 1280" "$STDERR_FILE"
+
+# 未设置时不注入 -m
 : > "$CAPTURE_FILE"
 CAPTURE_FILE="$CAPTURE_FILE" \
 USQUE_BANNER=false \
 USQUE_CONFIG="$CONFIG_FILE" \
 USQUE_MODE=socks \
-USQUE_MTU=abc \
   "$ENTRYPOINT_UNDER_TEST" 2> "$STDERR_FILE"
 
 printf '%s\n' "-c $CONFIG_FILE socks" > "$TMP_DIR/expected"
-diff -u "$TMP_DIR/expected" "$CAPTURE_FILE"
-grep -Fq "USQUE_MTU=abc 无效，已忽略" "$STDERR_FILE"
-
-: > "$CAPTURE_FILE"
-CAPTURE_FILE="$CAPTURE_FILE" \
-USQUE_BANNER=false \
-USQUE_CONFIG="$CONFIG_FILE" \
-USQUE_MODE=socks \
-USQUE_MTU=1200 \
-  "$ENTRYPOINT_UNDER_TEST" 2> "$STDERR_FILE"
-
-printf '%s\n' "-c $CONFIG_FILE socks -m 1200" > "$TMP_DIR/expected"
 diff -u "$TMP_DIR/expected" "$CAPTURE_FILE"

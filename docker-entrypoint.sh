@@ -58,14 +58,28 @@ normalize_port() {
   fi
 }
 
+# 上游默认且唯一官方支持的 MTU 是 1280（IPv6 最小 MTU）
 normalize_mtu() {
   [ -z "${USQUE_MTU:-}" ] && return 0
-  case "$USQUE_MTU" in
-    *[!0-9]*)
-      log "警告：USQUE_MTU=$USQUE_MTU 无效，已忽略（使用上游默认值）"
-      USQUE_MTU=""
-      ;;
+  case "$cmd" in
+    socks|http-proxy|nativetun|portfw) ;;
+    *) return 0 ;;   # 其余模式不使用 MTU，L4 的忽略提示由 normalize_mode_specific_env 给出
   esac
+
+  # 非数字、0、超过 65535（含会让上游整数溢出的超长值）一律回退，避免容器直接退出
+  case "$USQUE_MTU" in
+    *[!0-9]*|??????*) mtu_valid=false ;;
+    *) if [ "$USQUE_MTU" -ge 1 ] && [ "$USQUE_MTU" -le 65535 ]; then mtu_valid=true; else mtu_valid=false; fi ;;
+  esac
+  if [ "$mtu_valid" != "true" ]; then
+    log "警告：USQUE_MTU=$USQUE_MTU 无效，已回退为 1280"
+    USQUE_MTU=1280
+    return 0
+  fi
+
+  if [ "$USQUE_MTU" -lt 1280 ]; then
+    log "警告：USQUE_MTU=$USQUE_MTU 小于 1280，隧道内 IPv6 将不可用（双栈域名可能连接失败），建议使用 1280"
+  fi
 }
 
 normalize_auth() {
