@@ -18,6 +18,7 @@ env:
 permissions:
   contents: write
   packages: write
+  actions: write   # 供 keepalive 步骤重新启用本 workflow
 
 jobs:
   prepare:
@@ -27,7 +28,15 @@ jobs:
       go_version: ${{ steps.set-version.outputs.go_version }}
       skip: ${{ steps.check-exists.outputs.skip }}
     steps:
-      - name: 获取上游版本与 Go 版本
+      # 仓库 60 天无提交时 GitHub 会停用定时 workflow（disabled_inactivity），
+      # 导致上游发新版也不再自动构建；定时运行时调用 enable 接口重置计时
+      - name: 保持定时任务启用
+        if: github.event_name == 'schedule'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/Build%20Image.yml/enable"
+
         id: set-version
         env:
           INPUT_REF: ${{ github.event.inputs.ref }}
@@ -91,29 +100,19 @@ jobs:
 
       - name: Shell 语法检查
         run: |
-          sh -n docker-entrypoint.sh \
-            tests/entrypoint-banner.sh \
-            tests/entrypoint-l4-modes.sh \
-            tests/entrypoint-fallbacks.sh \
-            tests/dockerfile-runtime-metadata.sh \
-            tests/entrypoint-registration.sh
+          for script in docker-entrypoint.sh tests/*.sh; do
+            sh -n "$script"
+          done
 
       - name: ShellCheck 静态检查
         run: |
-          shellcheck docker-entrypoint.sh \
-            tests/entrypoint-banner.sh \
-            tests/entrypoint-l4-modes.sh \
-            tests/entrypoint-fallbacks.sh \
-            tests/dockerfile-runtime-metadata.sh \
-            tests/entrypoint-registration.sh
+          shellcheck docker-entrypoint.sh tests/*.sh
 
       - name: 运行入口脚本回归测试
         run: |
-          sh tests/entrypoint-banner.sh
-          sh tests/entrypoint-l4-modes.sh
-          sh tests/entrypoint-fallbacks.sh
-          sh tests/dockerfile-runtime-metadata.sh
-          sh tests/entrypoint-registration.sh
+          for script in tests/*.sh; do
+            sh "$script"
+          done
 
   build:
     runs-on: ubuntu-latest
