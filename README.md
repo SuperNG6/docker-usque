@@ -37,7 +37,7 @@ services:
     restart: unless-stopped
     environment:
       - USQUE_MODE=socks           # 运行模式：socks / http-proxy / l4-socks / l4-http-proxy / nativetun / portfw / enroll / register
-      - USQUE_MTU=1280             # 上游默认值；低于 1280 时隧道内 IPv6 不可用
+      - USQUE_MTU=1320             # 低于 1280 时隧道内 IPv6 不可用；留空则使用上游默认 1280
       - USQUE_CONFIG=/app/config.json
       - USQUE_BIND=0.0.0.0
       - USQUE_PORT=1080
@@ -62,7 +62,7 @@ services:
     restart: unless-stopped
     environment:
       - USQUE_MODE=http-proxy
-      - USQUE_MTU=1280             # 上游默认值；低于 1280 时隧道内 IPv6 不可用
+      - USQUE_MTU=1320             # 低于 1280 时隧道内 IPv6 不可用；留空则使用上游默认 1280
       - USQUE_CONFIG=/app/config.json
       - USQUE_BIND=0.0.0.0
       - USQUE_PORT=8000
@@ -280,7 +280,7 @@ docker compose up -d usque-socks usque-http
 * 布尔变量只接受 `true` / `false`，无效值会回退默认值
 * 只设置 `USQUE_USER` 或只设置 `USQUE_PASS` 时禁用代理认证
 * L4 模式会忽略不支持的 `USQUE_SNI`、`USQUE_MTU`、`USQUE_HTTP2`
-* `USQUE_MTU` 无效（非数字、0 或超过 65535）时回退为 `1280`；小于 1280 时保留但给出警告（隧道内 IPv6 会失效，双栈域名可能连不上）
+* `USQUE_MTU` 无效（非数字、0 或超过 65535）时回退为 `1320`；小于 1280 时保留但给出警告（隧道内 IPv6 会失效，双栈域名可能连不上）
 * `portfw` 会忽略 `USQUE_BIND`、`USQUE_PORT`、`USQUE_USER`、`USQUE_PASS`（上游无对应参数，端口映射用 `-L/-R`）
 * `nativetun` 缺少 `/dev/net/tun` 时回退到 `socks`
 

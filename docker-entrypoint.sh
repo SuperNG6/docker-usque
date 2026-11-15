@@ -58,7 +58,7 @@ normalize_port() {
   fi
 }
 
-# 上游默认且唯一官方支持的 MTU 是 1280（IPv6 最小 MTU）
+# 无效值的兜底为 1320；上游未设置 -m 时的默认值是 1280（IPv6 最小 MTU，低于它隧道内 IPv6 不可用）
 normalize_mtu() {
   [ -z "${USQUE_MTU:-}" ] && return 0
   case "$cmd" in
@@ -72,13 +72,13 @@ normalize_mtu() {
     *) if [ "$USQUE_MTU" -ge 1 ] && [ "$USQUE_MTU" -le 65535 ]; then mtu_valid=true; else mtu_valid=false; fi ;;
   esac
   if [ "$mtu_valid" != "true" ]; then
-    log "警告：USQUE_MTU=$USQUE_MTU 无效，已回退为 1280"
-    USQUE_MTU=1280
+    log "警告：USQUE_MTU=$USQUE_MTU 无效，已回退为 1320"
+    USQUE_MTU=1320
     return 0
   fi
 
   if [ "$USQUE_MTU" -lt 1280 ]; then
-    log "警告：USQUE_MTU=$USQUE_MTU 小于 1280，隧道内 IPv6 将不可用（双栈域名可能连接失败），建议使用 1280"
+    log "警告：USQUE_MTU=$USQUE_MTU 小于 1280，隧道内 IPv6 将不可用（双栈域名可能连接失败），建议不低于 1280"
   fi
 }
 
