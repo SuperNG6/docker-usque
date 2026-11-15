@@ -37,6 +37,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/Build%20Image.yml/enable"
 
+      - name: 获取上游版本与 Go 版本
         id: set-version
         env:
           INPUT_REF: ${{ github.event.inputs.ref }}
